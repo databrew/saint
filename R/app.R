@@ -21,6 +21,9 @@ app_ui <- function(request) {
             text="Main",
             tabName="main"),
           menuItem(
+            text="Raw data",
+            tabName="raw_data"),
+          menuItem(
             text = 'About',
             tabName = 'about')
         )),
@@ -31,15 +34,51 @@ app_ui <- function(request) {
         tabItems(
           tabItem(
             tabName="main",
-            navbarPage(title = '',
-                       collapsible = TRUE,
-                       tabPanel(title = "Overview",
-                                fluidPage()
-                       ),
-                       navbarMenu("Data",
-                                  tabPanel("Raw data"),
-                                  tabPanel("Meta-data"))
-                       
+            # navbarPage(title = '',
+            #            collapsible = TRUE,
+            #            tabPanel(title = "Overview",
+            fluidPage(
+              fluidRow(
+                column(6,
+                       actionButton('action', 'Refresh data')),
+                column(6,
+                       uiOutput('ts_ui'))
+              ),
+              fluidRow(
+                column(6,
+                       h3('Participants with missing forms'),
+                       DT::dataTableOutput('dt_missing')),
+                column(6,
+                       h3('Forms per day'),
+                       plotOutput('plot_forms'))
+              ),
+              fluidRow(
+                column(6,
+                       h3('COVID flags'),
+                       DT::dataTableOutput('dt_covid')),
+                column(6,
+                       h3('IVM flags'),
+                       DT::dataTableOutput('dt_ivm'))
+              ),
+              fluidRow(
+                column(12,
+                       h3('COVID and IVM symptoms flags'),
+                       DT::dataTableOutput('dt_both'))
+              )
+            )
+            # ),
+            # navbarMenu("Data",
+            #            tabPanel("Raw data"),
+            #            tabPanel("Meta-data"))
+            
+            # )
+          ),
+          tabItem(
+            tabName = 'raw_data',
+            fluidPage(
+              h1('Raw data'),
+              helpText('The below table is the data as it appears on the ODK server'),
+              DT::dataTableOutput('dt_raw')
             )
           ),
           tabItem(
@@ -129,11 +168,82 @@ mobile_golem_add_external_resources <- function(){
 #' @import leaflet
 #' @import yaml
 app_server <- function(input, output, session) {
+
   
-  # Get data
-  get_data(data_file = paste0(getwd(), '/data.csv'),
-           user = yaml::read_yaml('credentials/credentials.yaml')$user,
-           password = yaml::read_yaml('credentials/credentials.yaml')$password)
+  # Get into reactive object
+  data_list <- reactiveValues(data = data.frame(),
+                              ts = as.character(Sys.time()))
+    
+  
+  # Observe the action button (or app start) to load data
+  observeEvent(input$action, {
+    # Get data
+    df <- get_data(data_file = paste0(getwd(), '/data.csv'),
+             user = yaml::read_yaml('credentials/credentials.yaml')$user,
+             password = yaml::read_yaml('credentials/credentials.yaml')$password)
+    data_list$data <- df
+    data_list$ts <- as.character(Sys.time())
+  }, ignoreNULL = FALSE)
+  
+  output$dt_raw <- DT::renderDataTable({
+    out <- data_list$data
+    out
+  },
+  options = list(scrollX = TRUE))
+  
+  output$ts_ui <- renderUI({
+    out <- data_list$ts
+    helpText(paste0('Data last updated at: ', out))
+  })
+  
+  output$dt_missing <- DT::renderDataTable({
+    tibble(x = c('This will be a table',
+                 'of people who have not filled',
+                 'out a form by 14:00, or at all',
+                 'for any given day.'))
+  })
+  
+  output$dt_covid <- DT::renderDataTable({
+    tibble(x = c('This will be a table of people who have:',
+                 'Fver > 7 days',
+                 'Cough > 14 days',
+                 'Fatigue > 10 days',
+                 '10 or more bowel movements in a day',
+                 '5 o more bowele movements over 3 days'))
+  })
+  
+  output$dt_ivm <- DT::renderDataTable({
+    tibble(x = c('This will be a table of:',
+                 'The day of symptom onset after treatment'))
+  })
+  
+  output$dt_both <- DT::renderDataTable({
+    tibble(x = c('This will be a table of people with symptoms',
+                 'Common to both COVID-19 and IVM:',
+                 'Vomiting, diarrhea, headache',
+                 'Fever, fatigue, not feeling well generally'))
+  })
+  
+  output$plot_forms <- renderPlot({
+    pd <- expand.grid(id = 1:10,
+                      date = seq(Sys.Date()-5, Sys.Date(), by = 1)) %>%
+      mutate(form = 1)
+    remove <- sample(1:nrow(pd), 3)
+    pd <- pd[!1:nrow(pd) %in% remove,]
+    cols <- colorRampPalette(RColorBrewer::brewer.pal(n = 9, name = 'Spectral'))(length(unique(pd$id)))
+    ggplot(data = pd,
+           aes(x = date,
+               y = form,
+               fill = factor(id))) +
+      geom_bar(stat = 'identity',
+               color = 'black',
+               size = 0.2) +
+      scale_fill_manual(name = 'ID',
+                        values = cols) +
+      labs(x = 'Date',
+           y = 'Forms filled out',
+           title = 'Placeholder chart of forms filled out')
+  })
   
 }
 
