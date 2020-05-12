@@ -22,7 +22,9 @@ get_data <- function(data_file = 'data.csv',
     df <- df$non_repeats
     message('---Data updated. ', nrow(df), ' new rows. Will combine with the ', nrow(data), ' already existing rows.')
     # Combine the old data with the new data
-    combined <- bind_rows(data, df)
+    # combined <- bind_rows(data, df)
+    combined <- bind_rows(mutate_all(data, as.character), mutate_all(df, as.character))
+
     message('---Writing csv with updated data to ', data_file)
     write_csv(combined, data_file)
   } else {
