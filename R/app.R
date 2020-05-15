@@ -46,24 +46,20 @@ app_ui <- function(request) {
               ),
               fluidRow(
                 column(6,
-                       h3('Participants with missing forms'),
+                       h3('Form submission times'),
                        DT::dataTableOutput('dt_missing')),
                 column(6,
                        h3('Forms per day'),
                        plotOutput('plot_forms'))
               ),
               fluidRow(
-                column(6,
-                       h3('COVID flags'),
-                       DT::dataTableOutput('dt_covid')),
-                column(6,
-                       h3('IVM flags'),
-                       DT::dataTableOutput('dt_ivm'))
+                column(12,
+                       h3('Symptoms table'),
+                       helpText('The below table shows the number of consecutive days a patient has had a given symptom, as of the most recent observation. Click on the symptom to order by number of days.'),
+                       DT::dataTableOutput('dt_symptoms'))
               ),
               fluidRow(
-                column(12,
-                       h3('COVID and IVM symptoms flags'),
-                       DT::dataTableOutput('dt_both'))
+
               )
             )
             # ),
@@ -197,44 +193,86 @@ app_server <- function(input, output, session) {
   })
   
   output$dt_missing <- DT::renderDataTable({
-    tibble(x = c('This will be a table',
-                 'of people who have not filled',
-                 'out a form by 14:00, or at all',
-                 'for any given day.'))
+    pd <- data_list$data
+    attr(pd$end_time, 'tzone') <- 'Europe/Paris'
+    out <- pd %>%
+      arrange(end_time) %>%
+      group_by(pin) %>%
+      summarise(x = dplyr::last(end_time)) %>%
+      filter(!is.na(pin)) %>%
+      ungroup %>%
+      mutate(`Hours ago` = round(as.numeric(as.difftime(Sys.time()- x, units = 'hours')), digits = 2)) %>%
+      mutate(x = as.character(x)) %>%
+      dplyr::rename(`Last form submitted at` = x)
+    out
   })
   
-  output$dt_covid <- DT::renderDataTable({
-    tibble(x = c('This will be a table of people who have:',
-                 'Fver > 7 days',
-                 'Cough > 14 days',
-                 'Fatigue > 10 days',
-                 '10 or more bowel movements in a day',
-                 '5 o more bowele movements over 3 days'))
+  output$dt_symptoms <- DT::renderDataTable({
+    pd <- data_list$data
+    pd <- pd %>%
+      mutate(date = as.Date(end_time)) %>%
+      arrange(pin,
+              date) %>%
+      filter(!is.na(pin)) %>%
+      group_by(pin) %>%
+      summarise(max_date = max(date),
+                congestion_last = dplyr::last(congestion_si_no),
+                congestion_days = dplyr::last(sequence(rle(as.character(congestion_si_no))$lengths)),
+                congestion_days = ifelse(congestion_last == 'No', 0, congestion_days),
+                
+                diarrea_last = dplyr::last(diarrea_si_no),
+                diarrea_days = dplyr::last(sequence(rle(as.character(diarrea_si_no))$lengths)),
+                diarrea_days = ifelse(diarrea_last == 'No', 0, diarrea_days),
+                
+                fatiga_last = dplyr::last(fatiga_si_no),
+                fatiga_days = dplyr::last(sequence(rle(as.character(fatiga_si_no))$lengths)),
+                fatiga_days = ifelse(fatiga_last == 'No', 0, fatiga_days),
+                
+                malestar_last = dplyr::last(malestar_si_no),
+                malestar_days = dplyr::last(sequence(rle(as.character(malestar_si_no))$lengths)),
+                malestar_days = ifelse(malestar_last == 'No', 0, malestar_days),
+                
+                medicacion_last = dplyr::last(medicacion_si_no),
+                medicacion_days = dplyr::last(sequence(rle(as.character(medicacion_si_no))$lengths)),
+                medicacion_days = ifelse(medicacion_last == 'No', 0, medicacion_days),
+                
+                temp_last = dplyr::last(temp_si_no),
+                temp_days = dplyr::last(sequence(rle(as.character(temp_si_no))$lengths)),
+                temp_days = ifelse(temp_last == 'No', 0, temp_days),
+                
+                tos_last = dplyr::last(tos_si_no),
+                tos_days = dplyr::last(sequence(rle(as.character(tos_si_no))$lengths)),
+                tos_days = ifelse(tos_last == 'No', 0, tos_days),
+                
+                vomitos_last = dplyr::last(vomitos_si_no),
+                vomitos_days = dplyr::last(sequence(rle(as.character(vomitos_si_no))$lengths)),
+                vomitos_days = ifelse(vomitos_last == 'No', 0, vomitos_days),
+                ) %>%
+      # Remove column names with "last"
+      dplyr::select(-contains('_last')) %>%
+      # Rename column
+      dplyr::rename(`Last observation` = max_date)
+    # Remove the "days" from column names
+    names(pd) <- gsub('_days', '', names(pd))
+    pd
   })
   
-  output$dt_ivm <- DT::renderDataTable({
-    tibble(x = c('This will be a table of:',
-                 'The day of symptom onset after treatment'))
-  })
-  
-  output$dt_both <- DT::renderDataTable({
-    tibble(x = c('This will be a table of people with symptoms',
-                 'Common to both COVID-19 and IVM:',
-                 'Vomiting, diarrhea, headache',
-                 'Fever, fatigue, not feeling well generally'))
-  })
-  
+
   output$plot_forms <- renderPlot({
-    pd <- expand.grid(id = 1:10,
-                      date = seq(Sys.Date()-5, Sys.Date(), by = 1)) %>%
-      mutate(form = 1)
-    remove <- sample(1:nrow(pd), 3)
-    pd <- pd[!1:nrow(pd) %in% remove,]
-    cols <- colorRampPalette(RColorBrewer::brewer.pal(n = 9, name = 'Spectral'))(length(unique(pd$id)))
+    pd <- data_list$data
+    pd <- pd %>%
+      group_by(date = as.Date(end_time),
+               pin) %>%
+      tally %>%
+      ungroup %>%
+      filter(!is.na(pin),
+             !is.na(date))
+    cols <- colorRampPalette(RColorBrewer::brewer.pal(n = 9, name = 'Spectral'))(length(unique(pd$pin)))
+    
     ggplot(data = pd,
            aes(x = date,
-               y = form,
-               fill = factor(id))) +
+               y = n,
+               fill = factor(pin))) +
       geom_bar(stat = 'identity',
                color = 'black',
                size = 0.2) +
@@ -242,7 +280,9 @@ app_server <- function(input, output, session) {
                         values = cols) +
       labs(x = 'Date',
            y = 'Forms filled out',
-           title = 'Placeholder chart of forms filled out')
+           title = 'Forms filled out by date') #+
+      # guides(fill = guide_legend(reverse = TRUE))
+
   })
   
 }
