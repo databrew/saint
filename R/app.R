@@ -56,10 +56,11 @@ app_ui <- function(request) {
                 column(12,
                        h3('Symptoms table'),
                        helpText('The below table shows the number of consecutive days a patient has had a given symptom, as of the most recent observation. Click on the symptom to order by number of days.'),
+                       h4('Click a PIN to get more details below on that patient'),
                        DT::dataTableOutput('dt_symptoms'))
               ),
               fluidRow(
-
+                uiOutput('participant_ui')
               )
             )
             # ),
@@ -147,7 +148,7 @@ mobile_golem_add_external_resources <- function(){
     # # Google analytics script
     # includeHTML(system.file('app/www/google-analytics-mini.html', package = 'covid19')),
     # includeScript(system.file('app/www/script.js', package = 'covid19')),
-    # includeScript(system.file('app/www/mobile.js', package = 'covid19')),
+    # includeScript(system.file('app/www/dtselect.js', package = 'saint')),
     # includeScript('inst/app/www/script.js'),
     
     # includeScript('www/google-analytics.js'),
@@ -168,7 +169,8 @@ app_server <- function(input, output, session) {
   
   # Get into reactive object
   data_list <- reactiveValues(data = data.frame(),
-                              ts = as.character(Sys.time()))
+                              ts = as.character(Sys.time()),
+                              participant = NA)
     
   
   # Observe the action button (or app start) to load data
@@ -177,8 +179,15 @@ app_server <- function(input, output, session) {
     df <- get_data(data_file = paste0(getwd(), '/data.csv'),
              user = yaml::read_yaml('credentials/credentials.yaml')$user,
              password = yaml::read_yaml('credentials/credentials.yaml')$password)
+    message('Got new df')
     data_list$data <- df
+    message('Stuck new df in reactive list')
     data_list$ts <- as.character(Sys.time())
+    message('Got time stamp')
+    message('data_list$data looks like:')
+    print(head(data_list$data))
+    # x <- data_list$data
+    # save(x, file = '/tmp/tmp.RData')
   }, ignoreNULL = FALSE)
   
   output$dt_raw <- DT::renderDataTable({
@@ -194,28 +203,61 @@ app_server <- function(input, output, session) {
   
   output$dt_missing <- DT::renderDataTable({
     pd <- data_list$data
-    attr(pd$end_time, 'tzone') <- 'Europe/Paris'
-    out <- pd %>%
-      arrange(end_time) %>%
-      group_by(pin) %>%
-      summarise(x = dplyr::last(end_time)) %>%
-      filter(!is.na(pin)) %>%
-      ungroup %>%
-      mutate(`Hours ago` = round(as.numeric(as.difftime(Sys.time()- x, units = 'hours')), digits = 2)) %>%
-      mutate(x = as.character(x)) %>%
-      dplyr::rename(`Last form submitted at` = x)
-    out
+    save(pd, file = '/tmp/tmp.RData')
+    ok <- FALSE
+    if(!is.null(pd)){
+      if(nrow(pd) > 0){
+        if('end_time' %in% names(pd)){
+          ok <- T
+        }
+      }
+    }
+    if(ok){
+      out <- pd %>%
+        arrange(end_time) %>%
+        group_by(pin) %>%
+        summarise(x = dplyr::last(end_time)) %>%
+        filter(!is.na(pin)) %>%
+        ungroup %>%
+        mutate(`Days ago` = round(as.numeric(as.difftime(Sys.time()- x, units = 'days')), digits = 2)) %>%
+        mutate(x = as.character(x)) %>%
+        dplyr::rename(`Last form submitted at` = x)
+      out
+    } else {
+      NULL
+    }
   })
   
-  output$dt_symptoms <- DT::renderDataTable({
+  data_symptoms <- reactive({
     pd <- data_list$data
     pd <- pd %>%
       mutate(date = as.Date(end_time)) %>%
       arrange(pin,
               date) %>%
       filter(!is.na(pin)) %>%
+      # Keep only the most recent one for each date
+      mutate(dummy = 1) %>%
+      group_by(pin, date) %>%
+      mutate(cs = cumsum(dummy)) %>%
+      filter(dummy == max(dummy)) %>%
+      ungroup %>%
+      dplyr::select(-dummy)
+    # Get the missing dates too
+    left <- expand.grid(date = seq(min(pd$date),
+                                   max(pd$date),
+                                   by = 1),
+                        pin = sort(unique(pd$pin)))
+    pd <- left_join(left, pd)
+    pd <- pd %>% arrange(pin, date)
+    
+    pd <- pd %>%
       group_by(pin) %>%
-      summarise(max_date = max(date),
+      mutate(max_date = max(date[!is.na(instanceID)])) %>%
+      ungroup %>%
+      # Don't keep anything after max date
+      filter(date <= max_date) %>%
+      group_by(pin) %>%
+      summarise(max_date = max(date[!is.na(instanceID)]),
                 congestion_last = dplyr::last(congestion_si_no),
                 congestion_days = dplyr::last(sequence(rle(as.character(congestion_si_no))$lengths)),
                 congestion_days = ifelse(congestion_last == 'No', 0, congestion_days),
@@ -247,16 +289,96 @@ app_server <- function(input, output, session) {
                 vomitos_last = dplyr::last(vomitos_si_no),
                 vomitos_days = dplyr::last(sequence(rle(as.character(vomitos_si_no))$lengths)),
                 vomitos_days = ifelse(vomitos_last == 'No', 0, vomitos_days),
-                ) %>%
+      ) %>%
+      ungroup %>%
       # Remove column names with "last"
       dplyr::select(-contains('_last')) %>%
       # Rename column
       dplyr::rename(`Last observation` = max_date)
     # Remove the "days" from column names
     names(pd) <- gsub('_days', '', names(pd))
+    # save(pd, file = '/tmp/tmp2.RData')
+    
     pd
   })
   
+  output$dt_symptoms <- DT::renderDataTable({
+    pd <- data_symptoms()
+    pd
+  },
+  selection = 'single')
+  
+  observeEvent(input$dt_symptoms_rows_selected,{
+    row = input$dt_symptoms_rows_selected
+    # print(row)
+    pd <- data_symptoms()
+    the_participant <- pd$pin[row]
+    data_list$participant <- the_participant
+    message('Selected patient is ', the_participant)
+  })
+  
+  
+  output$participant_ui <- renderUI({
+    pin <- data_list$participant
+    if(is.na(pin)){
+      fluidPage(h4('Click a row in the table above to view more details.'))
+    } else {
+      the_pin <- pin
+      full_data <- data_list$data
+      temp_data <- 
+        full_data <- 
+        full_data %>%
+        filter(pin == the_pin)
+      temp_data <- temp_data %>%
+        dplyr::select(date = start_time, temp) %>%
+        mutate(date  = as.Date(date))
+      
+      full_data <- full_data  %>%
+        dplyr::select(date = start_time, contains('si_no')) %>%
+        mutate(date  = as.Date(date))
+      names(full_data) <- gsub('_si_no', '', names(full_data))
+      full_data <- full_data %>%
+        tidyr::gather(key, value, congestion:vomitos)
+      left <- expand.grid(date = seq(min(full_data$date), max(full_data$date), 1),
+                          key = sort(unique(full_data$key)))
+      joined <- left_join(left, full_data)
+      output$plot_grid <- renderPlot({
+        ggplot(data = joined,
+               aes(x = date,
+                   y = key,
+                   fill = value)) +
+          geom_tile(color = 'black', size = 0.1) +
+          scale_fill_manual(name = '',
+                            values = c('lightblue', 'darkorange', 'white')) +
+          theme_saint() +
+          labs(x = 'Date',
+               y = 'Symptom',
+               title = 'Symptoms over time')
+      })
+      
+      output$plot_temperature <- 
+        renderPlot({
+          message('Temperature data looks like this:')
+          print(temp_data)
+          ggplot(data = temp_data,
+                 aes(x = date,
+                     y = temp)) +
+            geom_point(color = 'red', size = 3) +
+            geom_line() +
+            theme_saint() +
+            labs(x = 'Date',
+                 y = 'Celcius',
+                 title = 'Temperature over time')
+        })
+      
+      # pd <- data_symptoms()
+      # pd <- pd %>% filter(pin == the_pin)
+      fluidPage(
+        fluidRow(plotOutput('plot_grid')),
+        fluidRow(plotOutput('plot_temperature'))
+      )
+    }
+  })
 
   output$plot_forms <- renderPlot({
     pd <- data_list$data

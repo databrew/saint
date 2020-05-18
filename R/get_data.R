@@ -11,6 +11,7 @@ get_data <- function(data_file = 'data.csv',
   }
   # Define which uuids to exclude (because they've already been retrieved)
   exclude_these <- data$instanceID
+  exclude_these <- exclude_these[!is.na(exclude_these)]
   
   # Retrieve ODK data
   df <- odk_get_data(url = 'https://bohemia.systems', 
@@ -25,10 +26,16 @@ get_data <- function(data_file = 'data.csv',
     # combined <- bind_rows(data, df)
     combined <- bind_rows(mutate_all(data, as.character), mutate_all(df, as.character))
 
+    # Fix the end_time field
+    combined$end_time <- substr(gsub('T', ' ', as.character(combined$end_time)), 1, 19)
+    
     message('---Writing csv with updated data to ', data_file)
     write_csv(combined, data_file)
   } else {
     combined <- data
   }
+  combined$end_time <- as.POSIXct(combined$end_time)
+  attr(pd$end_time, 'tzone') <- 'Europe/Paris'
+  
   return(combined)
 }
