@@ -35,7 +35,7 @@ get_data <- function(data_file = 'data.csv',
     combined <- data
   }
   combined$end_time <- as.POSIXct(combined$end_time)
-  attr(pd$end_time, 'tzone') <- 'Europe/Paris'
+  attr(combined$end_time, 'tzone') <- 'Europe/Paris'
   
   return(combined)
 }
