@@ -22,6 +22,8 @@ usethis::use_package( "tidyr" )
 usethis::use_package( "ggplot2" )
 usethis::use_package( "ggthemes" )
 usethis::use_package( "RColorBrewer" )
+usethis::use_package( "lubridate" )
+usethis::use_package( "gt" )
 
 
 ## Add modules ----

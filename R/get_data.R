@@ -1,11 +1,14 @@
 #' @import dplyr
 #' @import readr
+#' @import lubridate
 get_data <- function(data_file = 'data.csv',
                      user = '',
                      password = '') {
   # Get list of current data
   if(file.exists(data_file)){
     data <- read_csv(data_file)
+    data$end_time <- as.POSIXct(data$end_time, tz = 'Europe/Paris')
+    data$end_time <- as.character(data$end_time)
   } else {
     data <- tibble(instanceID = '')
   }
@@ -30,11 +33,12 @@ get_data <- function(data_file = 'data.csv',
     combined$end_time <- substr(gsub('T', ' ', as.character(combined$end_time)), 1, 19)
     
     message('---Writing csv with updated data to ', data_file)
+    # save(combined, file = '/tmp/tmp.RData')
     write_csv(combined, data_file)
   } else {
     combined <- data
   }
-  combined$end_time <- as.POSIXct(combined$end_time)
+  # combined$end_time <- as.POSIXct(combined$end_time) - lubridate::hours(2)
   attr(combined$end_time, 'tzone') <- 'Europe/Paris'
   
   return(combined)

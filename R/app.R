@@ -7,6 +7,7 @@
 #' @import leaflet
 #' @import shiny
 #' @import ggplot2
+#' @import gt
 app_ui <- function(request) {
   options(scipen = '999')
   
@@ -25,7 +26,14 @@ app_ui <- function(request) {
             tabName="raw_data"),
           menuItem(
             text = 'About',
-            tabName = 'about')
+            tabName = 'about'),
+          fluidRow(
+            column(12,
+                   actionButton('action', 'Refresh data'))),
+            
+          fluidRow(column(12,
+                   uiOutput('ts_ui'))
+          )
         )),
       dashboardBody(
         # tags$head(
@@ -39,18 +47,10 @@ app_ui <- function(request) {
             #            tabPanel(title = "Overview",
             fluidPage(
               fluidRow(
-                column(6,
-                       actionButton('action', 'Refresh data')),
-                column(6,
-                       uiOutput('ts_ui'))
-              ),
-              fluidRow(
-                column(6,
-                       h3('Form submission times'),
-                       DT::dataTableOutput('dt_missing')),
-                column(6,
-                       h3('Forms per day'),
-                       plotOutput('plot_forms'))
+                column(12,
+                       h3('Most recent submissions'),
+                       helpText('Blue = already submitted today. Yellow = not yet submitted today. Red = never submitted'),
+                       gt_output('dt_missing'))
               ),
               fluidRow(
                 column(12,
@@ -164,6 +164,8 @@ mobile_golem_add_external_resources <- function(){
 #' @import shiny
 #' @import leaflet
 #' @import yaml
+#' @import lubridate
+#' @import gt
 app_server <- function(input, output, session) {
 
   
@@ -198,12 +200,15 @@ app_server <- function(input, output, session) {
   
   output$ts_ui <- renderUI({
     out <- data_list$ts
-    helpText(paste0('Data last updated at: ', out))
+    fluidPage(
+      helpText('Updated at:'),
+      helpText(out)
+    )
   })
   
-  output$dt_missing <- DT::renderDataTable({
+  output$dt_missing <- render_gt({
     pd <- data_list$data
-    save(pd, file = '/tmp/tmp.RData')
+    # save(pd, file = '/tmp/tmp.RData')
     ok <- FALSE
     if(!is.null(pd)){
       if(nrow(pd) > 0){
@@ -215,18 +220,72 @@ app_server <- function(input, output, session) {
     if(ok){
       out <- pd %>%
         arrange(end_time) %>%
-        group_by(pin) %>%
+        group_by(pin = as.character(pin)) %>%
         summarise(x = dplyr::last(end_time)) %>%
         filter(!is.na(pin)) %>%
         ungroup %>%
-        mutate(`Days ago` = round(as.numeric(as.difftime(Sys.time()- x, units = 'days')), digits = 2)) %>%
+        mutate(x = as.POSIXct(x, tz = 'Europe/Paris'))
+      left <- tibble(pin = as.character(1:24))
+      out <- left_join(left, out)
+      out <- out %>%
+        mutate(`Hours ago` = round(interval(x, as.POSIXct(Sys.time(), tz = 'Europe/Paris')) / hours(1), digits = 1)) %>%
+        mutate(#x = ifelse(is.na(x), '(never)', x),
+               `Hours ago` = ifelse(is.na(`Hours ago`), ' ', `Hours ago`)) %>%
+        # mutate(ja = NA) %>%
         mutate(x = as.character(x)) %>%
-        dplyr::rename(`Last form submitted at` = x)
-      out
+        dplyr::rename(`Last form submitted at` = x) 
+      
+      # Define formatter functions
+      hide_na <- function(.x){
+        out <- as.POSIXct(.x)
+        out <- as.character(out)
+        out <- ifelse(is.na(out), '(never)', out)
+        out
+      }
+      
+      gt(out) %>%
+        # Color rows
+        tab_style(
+          style = cell_fill(color = "#F7EFB2"),
+          locations = cells_body(
+            # rows = `Hours ago` > 24
+            rows = as.Date(`Last form submitted at`) != Sys.Date()
+            )
+        ) %>%
+        tab_style(
+          style = cell_fill(color = "#66CCFF"),
+          locations = cells_body(
+            # rows = `Hours ago` > 24
+            rows = as.Date(`Last form submitted at`) == Sys.Date()
+          )
+        ) %>%
+        tab_style(
+          style = cell_fill(color = "#FF6347"),
+          locations = cells_body(
+            # rows = `Hours ago` > 24
+            rows = is.na(`Last form submitted at`)
+          )
+        ) %>%
+        # Bolden pin
+        tab_style(
+          style = cell_text(size = px(15), weight = "bold", font = "arial"),
+          locations = cells_body(vars(pin))
+        ) %>%
+        tab_style(
+          style = cell_text(
+            size = px(12),
+            # color = "#999",
+            font = "arial",
+            indent = px(65)
+          ),
+          locations = cells_body(vars(`Last form submitted at`))
+        ) %>%
+        fmt("Last form submitted at", fns = hide_na)
     } else {
       NULL
     }
-  })
+  }#, rownames= FALSE
+  )
   
   data_symptoms <- reactive({
     pd <- data_list$data
@@ -306,7 +365,8 @@ app_server <- function(input, output, session) {
     pd <- data_symptoms()
     pd
   },
-  selection = 'single')
+  selection = 'single',
+  rownames= FALSE)
   
   observeEvent(input$dt_symptoms_rows_selected,{
     row = input$dt_symptoms_rows_selected
@@ -360,6 +420,7 @@ app_server <- function(input, output, session) {
         renderPlot({
           message('Temperature data looks like this:')
           print(temp_data)
+
           ggplot(data = temp_data,
                  aes(x = date,
                      y = temp)) +
