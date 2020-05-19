@@ -47,17 +47,18 @@ app_ui <- function(request) {
             #            tabPanel(title = "Overview",
             fluidPage(
               fluidRow(
-                column(12,
+                column(4,
                        h3('Most recent submissions'),
                        helpText('Blue = already submitted today. Yellow = not yet submitted today. Red = never submitted'),
-                       gt_output('dt_missing'))
-              ),
-              fluidRow(
-                column(12,
+                       gt_output('dt_missing')),
+                column(8,
                        h3('Symptoms table'),
                        helpText('The below table shows the number of consecutive days a patient has had a given symptom, as of the most recent observation. Click on the symptom to order by number of days.'),
-                       h4('Click a PIN to get more details below on that patient'),
-                       DT::dataTableOutput('dt_symptoms'))
+                       h5('Click a PIN to get more details below on that patient'),
+                       DT::dataTableOutput('dt_symptoms'),
+                       h3('Invermectin symptoms table'),
+                       helpText('The below table shows the number of consecutive days a patient has had a given symptom, as of the most recent observation. Click on the symptom to order by number of days.'),
+                       DT::dataTableOutput('dt_ivermectin'))
               ),
               fluidRow(
                 uiOutput('participant_ui')
@@ -233,7 +234,7 @@ app_server <- function(input, output, session) {
                `Hours ago` = ifelse(is.na(`Hours ago`), ' ', `Hours ago`)) %>%
         # mutate(ja = NA) %>%
         mutate(x = as.character(x)) %>%
-        dplyr::rename(`Last form submitted at` = x) 
+        dplyr::rename(`Last form` = x) 
       
       # Define formatter functions
       hide_na <- function(.x){
@@ -249,21 +250,21 @@ app_server <- function(input, output, session) {
           style = cell_fill(color = "#F7EFB2"),
           locations = cells_body(
             # rows = `Hours ago` > 24
-            rows = as.Date(`Last form submitted at`) != Sys.Date()
+            rows = as.Date(`Last form`) != Sys.Date()
             )
         ) %>%
         tab_style(
           style = cell_fill(color = "#66CCFF"),
           locations = cells_body(
             # rows = `Hours ago` > 24
-            rows = as.Date(`Last form submitted at`) == Sys.Date()
+            rows = as.Date(`Last form`) == Sys.Date()
           )
         ) %>%
         tab_style(
           style = cell_fill(color = "#FF6347"),
           locations = cells_body(
             # rows = `Hours ago` > 24
-            rows = is.na(`Last form submitted at`)
+            rows = is.na(`Last form`)
           )
         ) %>%
         # Bolden pin
@@ -278,9 +279,15 @@ app_server <- function(input, output, session) {
             font = "arial",
             indent = px(65)
           ),
-          locations = cells_body(vars(`Last form submitted at`))
+          locations = cells_body(vars(`Last form`))
         ) %>%
-        fmt("Last form submitted at", fns = hide_na)
+        # Hide NA
+        fmt("Last form", fns = hide_na) %>%
+        # Align columns
+        cols_align(align = 'right',
+                   columns = vars(`Last form`)) %>%
+        cols_align(align = 'right',
+                   columns = vars(`Hours ago`))
     } else {
       NULL
     }
@@ -361,12 +368,133 @@ app_server <- function(input, output, session) {
     pd
   })
   
+  data_ivermectin <- reactive({
+    pd <- data_list$data
+    pd <- pd %>%
+      mutate(date = as.Date(end_time)) %>%
+      arrange(pin,
+              date) %>%
+      filter(!is.na(pin)) %>%
+      # Keep only the most recent one for each date
+      mutate(dummy = 1) %>%
+      group_by(pin, date) %>%
+      mutate(cs = cumsum(dummy)) %>%
+      filter(dummy == max(dummy)) %>%
+      ungroup %>%
+      dplyr::select(-dummy)
+    # Get the missing dates too
+    left <- expand.grid(date = seq(min(pd$date),
+                                   max(pd$date),
+                                   by = 1),
+                        pin = sort(unique(pd$pin)))
+    pd <- left_join(left, pd)
+    pd <- pd %>% arrange(pin, date)
+    
+    # Generate new variables
+    sintomas <- unique(c(pd$sintomas_1, pd$sintomas_2, pd$sintomas_3))
+    sintomas <- sintomas[!is.na(sintomas)]
+    sintomas <- paste0(sort(unique(sintomas)), collapse = ' ')
+    sintomas <- sort(unique(unlist(strsplit(sintomas, ' '))))
+    
+    for(j in 1:length(sintomas)){
+      this_sintoma <- sintomas[j]
+      var_name <- paste0(this_sintoma, '_iver')
+      pd[,var_name] <- NA
+      for(i in 1:nrow(pd)){
+        has_sintoma <- 
+          this_sintoma %in% pd[i,'sintomas_1'] |
+          this_sintoma %in% pd[i,'sintomas_2'] |
+          this_sintoma %in% pd[i,'sintomas_3'] 
+        pd[i,var_name] <- has_sintoma
+      }
+    }
+    
+    
+    
+    pd <- pd %>%
+      group_by(pin) %>%
+      mutate(max_date = max(date[!is.na(instanceID)])) %>%
+      ungroup %>%
+      # Don't keep anything after max date
+      filter(date <= max_date) %>%
+      group_by(pin) %>%
+      summarise(max_date = max(date[!is.na(instanceID)]),
+                colores_formas_anormales_iver_last = dplyr::last(colores_formas_anormales_iver),
+                colores_formas_anormales_iver_days = dplyr::last(sequence(rle(as.character(colores_formas_anormales_iver))$lengths)),
+                colores_formas_anormales_iver_days = ifelse(!colores_formas_anormales_iver_last, 0, colores_formas_anormales_iver_days),
+                
+                
+                Confusion_iver_last = dplyr::last(Confusion_iver),
+                Confusion_iver_days = dplyr::last(sequence(rle(as.character(Confusion_iver))$lengths)),
+                Confusion_iver_days = ifelse(!Confusion_iver_last, 0, Confusion_iver_days),
+                
+                dificultad_para_enfocar_objetos_iver_last = dplyr::last(dificultad_para_enfocar_objetos_iver),
+                dificultad_para_enfocar_objetos_iver_days = dplyr::last(sequence(rle(as.character(dificultad_para_enfocar_objetos_iver))$lengths)),
+                dificultad_para_enfocar_objetos_iver_days = ifelse(!dificultad_para_enfocar_objetos_iver_last, 0, dificultad_para_enfocar_objetos_iver_days),
+                
+                Mareos_iver_last = dplyr::last(Mareos_iver),
+                Mareos_iver_days = dplyr::last(sequence(rle(as.character(Mareos_iver))$lengths)),
+                Mareos_iver_days = ifelse(!Mareos_iver_last, 0, Mareos_iver_days),
+                
+                prurito_iver_last = dplyr::last(prurito_iver),
+                prurito_iver_days = dplyr::last(sequence(rle(as.character(prurito_iver))$lengths)),
+                prurito_iver_days = ifelse(!prurito_iver_last, 0, prurito_iver_days),
+                
+                puntos_ciegos_iver_last = dplyr::last(puntos_ciegos_iver),
+                puntos_ciegos_iver_days = dplyr::last(sequence(rle(as.character(puntos_ciegos_iver))$lengths)),
+                puntos_ciegos_iver_days = ifelse(!puntos_ciegos_iver_last, 0, puntos_ciegos_iver_days),
+                
+                puntos_flotantes_iver_last = dplyr::last(puntos_flotantes_iver),
+                puntos_flotantes_iver_days = dplyr::last(sequence(rle(as.character(puntos_flotantes_iver))$lengths)),
+                puntos_flotantes_iver_days = ifelse(!puntos_flotantes_iver_last, 0, puntos_flotantes_iver_days),
+                
+                sarpullido_iver_last = dplyr::last(sarpullido_iver),
+                sarpullido_iver_days = dplyr::last(sequence(rle(as.character(sarpullido_iver))$lengths)),
+                sarpullido_iver_days = ifelse(!sarpullido_iver_last, 0, sarpullido_iver_days),
+                
+                Somnolencia_iver_last = dplyr::last(Somnolencia_iver),
+                Somnolencia_iver_days = dplyr::last(sequence(rle(as.character(Somnolencia_iver))$lengths)),
+                Somnolencia_iver_days = ifelse(!Somnolencia_iver_last, 0, Somnolencia_iver_days),
+                
+                Temblores_iver_last = dplyr::last(Temblores_iver),
+                Temblores_iver_days = dplyr::last(sequence(rle(as.character(Temblores_iver))$lengths)),
+                Temblores_iver_days = ifelse(!Temblores_iver_last, 0, Temblores_iver_days),
+                
+                Vertigo_iver_last = dplyr::last(Vertigo_iver),
+                Vertigo_iver_days = dplyr::last(sequence(rle(as.character(Vertigo_iver))$lengths)),
+                Vertigo_iver_days = ifelse(!Vertigo_iver_last, 0, Vertigo_iver_days),
+                
+                vision_borrosa_iver_last = dplyr::last(vision_borrosa_iver),
+                vision_borrosa_iver_days = dplyr::last(sequence(rle(as.character(vision_borrosa_iver))$lengths)),
+                vision_borrosa_iver_days = ifelse(!vision_borrosa_iver_last, 0, vision_borrosa_iver_days),
+                
+                vision_de_tunel_iver_last = dplyr::last(vision_de_tunel_iver),
+                vision_de_tunel_iver_days = dplyr::last(sequence(rle(as.character(vision_de_tunel_iver))$lengths)),
+                vision_de_tunel_iver_days = ifelse(!vision_de_tunel_iver_last, 0, vision_de_tunel_iver_days)
+      ) %>%
+      ungroup %>%
+      # Remove column names with "last"
+      dplyr::select(-contains('_last')) %>%
+      # Rename column
+      dplyr::rename(`Last observation` = max_date)
+    # Remove the "days" from column names
+    names(pd) <- gsub('_iver', '', names(pd))
+    names(pd) <- gsub('_days', '', names(pd))
+    
+    # save(pd, file = '/tmp/tmp2.RData')
+    names(pd) <- gsub('_', ' ', names(pd))
+    names(pd) <- tolower(names(pd))
+    pd
+  })
+  
+  
   output$dt_symptoms <- DT::renderDataTable({
     pd <- data_symptoms()
     pd
   },
   selection = 'single',
-  rownames= FALSE)
+  rownames= FALSE,
+  options = list(scrollX = TRUE))
   
   observeEvent(input$dt_symptoms_rows_selected,{
     row = input$dt_symptoms_rows_selected
@@ -374,9 +502,23 @@ app_server <- function(input, output, session) {
     pd <- data_symptoms()
     the_participant <- pd$pin[row]
     data_list$participant <- the_participant
-    message('Selected patient is ', the_participant)
   })
   
+  observeEvent(input$dt_ivermectin_rows_selected,{
+    row = input$dt_ivermectin_rows_selected
+    # print(row)
+    pd <- data_ivermectin()
+    the_participant <- pd$pin[row]
+    data_list$participant <- the_participant
+  })
+  
+  output$dt_ivermectin <- DT::renderDataTable({
+    pd <- data_ivermectin()
+    pd
+  },
+  selection = 'single',
+  rownames= FALSE,
+  options = list(scrollX = TRUE))
   
   output$participant_ui <- renderUI({
     pin <- data_list$participant
@@ -413,30 +555,51 @@ app_server <- function(input, output, session) {
           theme_saint() +
           labs(x = 'Date',
                y = 'Symptom',
-               title = 'Symptoms over time')
+               title = paste0('Symptoms over time for participant ', data_list$participant))
       })
       
       output$plot_temperature <- 
         renderPlot({
-          message('Temperature data looks like this:')
-          print(temp_data)
+          ok <- FALSE
+          if(!is.null(temp_data)){
+            temp_range <- range(temp_data$temp, na.rm = TRUE)
+            print(temp_range)
+            if(!all(is.na(temp_range))){
+              if(!all(is.infinite(temp_range))){
+                ok <- TRUE
+              }
+            }
+          }
+          if(!ok){
+            ggplot() +
+              theme_saint() +
+              labs(title = paste0('No temperature data for participant ', data_list$participant))
+          } else {
+            lower <- floor(temp_range)
+            upper <- ceiling(temp_range)
+            temp_seq <- lower:upper
+            
+            ggplot(data = temp_data,
+                   aes(x = date,
+                       y = temp)) +
+              geom_hline(yintercept = temp_seq, alpha = 0.3) +
+              geom_point(color = 'red', size = 3) +
+              geom_line() +
+              theme_saint() +
+              labs(x = 'Date',
+                   y = 'Celcius',
+                   title = paste0('Temperature over time for participant ', data_list$participant))
+          }
 
-          ggplot(data = temp_data,
-                 aes(x = date,
-                     y = temp)) +
-            geom_point(color = 'red', size = 3) +
-            geom_line() +
-            theme_saint() +
-            labs(x = 'Date',
-                 y = 'Celcius',
-                 title = 'Temperature over time')
         })
       
       # pd <- data_symptoms()
       # pd <- pd %>% filter(pin == the_pin)
       fluidPage(
-        fluidRow(plotOutput('plot_grid')),
-        fluidRow(plotOutput('plot_temperature'))
+        column(6,
+               plotOutput('plot_grid')),
+        column(6,
+               plotOutput('plot_temperature'))
       )
     }
   })
