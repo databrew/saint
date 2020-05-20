@@ -531,6 +531,21 @@ app_server <- function(input, output, session) {
         full_data <- 
         full_data %>%
         filter(pin == the_pin)
+      
+      # Medication data
+      if(nrow(full_data) > 0){
+        med_data <- full_data %>%
+          arrange(end_time) %>%
+          mutate(medicacion_cual = ifelse(is.na(medicacion_cual), 'None', medicacion_cual)) %>%
+          summarise(`All medications taken` = paste0(sort(unique(medicacion_cual)), collapse = ', '),
+                    `Medications taken, most recent form` = dplyr::last(medicacion_cual)) 
+          
+      } else {
+        med_data <- data.frame()
+      }
+      
+      
+      # Temperature data
       temp_data <- temp_data %>%
         dplyr::select(date = start_time, temp) %>%
         mutate(date  = as.Date(date))
@@ -557,7 +572,6 @@ app_server <- function(input, output, session) {
                y = 'Symptom',
                title = paste0('Symptoms over time for participant ', data_list$participant))
       })
-      
       output$plot_temperature <- 
         renderPlot({
           ok <- FALSE
@@ -593,13 +607,25 @@ app_server <- function(input, output, session) {
 
         })
       
+      output$medication_table <- 
+        render_gt({
+          med_data
+        })
+      
       # pd <- data_symptoms()
       # pd <- pd %>% filter(pin == the_pin)
       fluidPage(
-        column(6,
-               plotOutput('plot_grid')),
-        column(6,
-               plotOutput('plot_temperature'))
+        fluidRow(
+          column(6,
+                 plotOutput('plot_grid')),
+          column(6,
+                 plotOutput('plot_temperature'))
+        ),
+        fluidRow(
+          column(12, align = 'center',
+                 h3('Medication'),
+                 gt_output('medication_table'))
+        )
       )
     }
   })
