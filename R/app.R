@@ -36,10 +36,12 @@ app_ui <- function(request) {
           )
         )),
       dashboardBody(
+        passwordInput('password', 'Password'),
         # tags$head(
         #   tags$link(rel = "stylesheet", type = "text/css", href = "custom.css")
         # ),
         tabItems(
+          
           tabItem(
             tabName="main",
             # navbarPage(title = '',
@@ -175,6 +177,17 @@ app_server <- function(input, output, session) {
                               ts = as.character(Sys.time()),
                               participant = NA)
     
+  logged_in <- reactiveVal(value = FALSE)
+  observeEvent(input$password,{
+    password <- yaml::read_yaml('credentials/credentials.yaml')$app_password
+    ok <- input$password == password
+    if(ok){
+      'Logged in'
+    } else {
+      'Not logged in'
+    }
+    logged_in(ok)
+  })
   
   # Observe the action button (or app start) to load data
   observeEvent(input$action, {
@@ -194,20 +207,33 @@ app_server <- function(input, output, session) {
   }, ignoreNULL = FALSE)
   
   output$dt_raw <- DT::renderDataTable({
-    out <- data_list$data
-    out
+    li <- logged_in()
+    if(li){
+      out <- data_list$data
+      out
+    } else {
+      NULL
+    }
+    
   },
   options = list(scrollX = TRUE))
   
   output$ts_ui <- renderUI({
-    out <- data_list$ts
-    fluidPage(
-      helpText('Updated at:'),
-      helpText(out)
-    )
+    li <- logged_in()
+    if(li){
+      out <- data_list$ts
+      fluidPage(
+        helpText('Updated at:'),
+        helpText(out)
+      )
+    } else {
+      fluidPage('Please enter password')
+    }
+    
   })
   
   output$dt_missing <- render_gt({
+    li <- logged_in()
     pd <- data_list$data
     # save(pd, file = '/tmp/tmp.RData')
     ok <- FALSE
@@ -218,7 +244,7 @@ app_server <- function(input, output, session) {
         }
       }
     }
-    if(ok){
+    if(ok & li){
       out <- pd %>%
         arrange(end_time) %>%
         group_by(pin = as.character(pin)) %>%
@@ -489,8 +515,14 @@ app_server <- function(input, output, session) {
   
   
   output$dt_symptoms <- DT::renderDataTable({
-    pd <- data_symptoms()
-    pd
+    li <- logged_in()
+    if(li){
+      pd <- data_symptoms()
+      pd
+    } else {
+      NULL
+    }
+    
   },
   selection = 'single',
   rownames= FALSE,
@@ -513,8 +545,14 @@ app_server <- function(input, output, session) {
   })
   
   output$dt_ivermectin <- DT::renderDataTable({
-    pd <- data_ivermectin()
-    pd
+    li <- logged_in()
+    if(li){
+      pd <- data_ivermectin()
+      pd
+    } else {
+      NULL
+    }
+    
   },
   selection = 'single',
   rownames= FALSE,

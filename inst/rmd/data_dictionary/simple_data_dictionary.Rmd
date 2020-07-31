@@ -1,0 +1,114 @@
+---
+title: "SAINT PERU"
+output: html_document
+params:
+    language: 'Spanish'
+    relevant: FALSE
+    include_variable_names: TRUE
+    choice_names_too: FALSE
+---
+
+
+```{r setup, include=FALSE, echo = FALSE}
+# Basic knitr options
+library(knitr)
+opts_chunk$set(comment = NA, 
+               echo = FALSE, 
+               warning = FALSE, 
+               message = FALSE, 
+               error = FALSE, 
+               cache = FALSE,
+               fig.width = 8.64,
+               fig.height = 4.86,
+               fig.path = 'figures/')
+```
+
+
+
+(... = list of options continues)
+
+```{r}
+library(readxl)
+library(dplyr)
+library(knitr)
+library(stringr)
+library(kableExtra)
+lang <- params$language
+rel <- params$relevant
+var <- params$include_variable_names
+cn <- params$choice_names_too
+
+# Read in the excel
+df <- read_excel('../../../forms/saintperu/saintperu.xlsx')
+
+# Read in the choices
+choices <- read_excel('../../../forms/saintperu/saintperu.xlsx', sheet = 2)
+
+# Join the questions and choices
+out_list <- list()
+for(i in 1:nrow(df)){
+  this_row <- df[i,]
+  has_choices <- grepl('select_multiple', this_row$type) | grepl('select_one', this_row$type)
+  if(!has_choices){
+    out <- this_row %>% mutate(choices = NA)
+  } else {
+    out <- this_row %>% mutate(list_name = unlist(strsplit(type, ' '))[2])
+    left <- choices %>% filter(list_name == out$list_name)
+    names(left) <- gsub('label', 'choices', names(left))
+    left$choice_name <- left$name 
+    left$name <- NULL
+    out <- left_join(left, out)
+  }
+  out_list[[i]] <- out
+}
+out <- bind_rows(out_list)
+
+# Clean up
+if(is.null(lang)){
+  out$Label <- out$label
+  out$Hint <- out$hint
+  out$Choices <- out$choices
+} else {
+  out$Label <- as.character(unlist(out[,paste0('label::', lang)]))
+  out$Hint <- as.character(unlist(out[,paste0('hint::', lang)]))
+  out$Choices <- as.character(unlist(out[,paste0('choices::', lang)]))
+}
+out$`Response Code` <- out$choice_name
+out$Response <- out$Choices
+keep_vars <- c('type', 'name', 'Label', 'Hint', 'Response', 'Response Code')
+
+out <- out %>% dplyr::select(all_of(keep_vars))
+clean_type <- function(x){
+  unlist(lapply(strsplit(x, ' '), function(y){y[1]}))
+}
+out$type <- clean_type(out$type)
+out <- out %>% filter(!type %in% c('begin', 'deviceid', 'end',
+                                   'note', 'start', 'today', 'calculate'))
+out <- out %>% dplyr::rename(Question = Label,
+                             `Variable name` = name,
+                             `Variable type` = type,
+                             `Response choices` = Response,
+                             `Response choice code` = `Response Code`)
+out <- out %>% dplyr::select(Question, `Variable name`, `Variable type`, `Response choices`, `Response choice code`)
+
+# Delete duplicate question names
+rn <- as.character(c(1))
+for(i in 2:nrow(out)){
+  this <- out$Question[i]
+  that <- out$Question[i-1]
+  if(this == that){
+    out$Question[i] <- ' '
+    rn[i] <- ' '
+  } else {
+    rn[i] <- max(as.numeric(rn), na.rm = TRUE) + 1
+  }
+}
+rn <- as.character(rn)
+
+DT::datatable(out, rownames = rn, 
+              options = list(
+                           paging =TRUE,
+                           pageLength =  nrow(out),
+                           columnDefs = list(list(className = 'dt-right', targets = '_all'))
+                           ))
+```
