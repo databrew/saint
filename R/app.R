@@ -37,6 +37,7 @@ app_ui <- function(request) {
         )),
       dashboardBody(
         passwordInput('password', 'Password'),
+        actionButton('submit_password', 'Submit'),
         # tags$head(
         #   tags$link(rel = "stylesheet", type = "text/css", href = "custom.css")
         # ),
@@ -178,15 +179,20 @@ app_server <- function(input, output, session) {
                               participant = NA)
     
   logged_in <- reactiveVal(value = FALSE)
-  observeEvent(input$password,{
+  observeEvent(input$submit_password,{
+    print('Submitting password')
     password <- yaml::read_yaml('credentials/credentials.yaml')$app_password
-    ok <- input$password == password
+    message('Password is ', password)
+    ipx <- input$password
+    message('Input password is ', ipx)
+    ok <- ipx == password
+    
     if(ok){
-      'Logged in'
+      message('Logged in')
+      logged_in(TRUE)
     } else {
-      'Not logged in'
+      message('Not logged in')
     }
-    logged_in(ok)
   })
   
   # Observe the action button (or app start) to load data
