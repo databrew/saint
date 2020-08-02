@@ -56,10 +56,10 @@ app_ui <- function(request) {
                        gt_output('dt_missing')),
                 column(8,
                        h3('Symptoms table'),
-                       helpText('The below table shows the number of consecutive days a patient has had a given symptom, as of the most recent observation. Click on the symptom to order by number of days.'),
+                       helpText('The below table shows the number of consecutive days a patient has had a given symptom, as of the most recent observation. Click on the symptom to order by number of days. NOTE: this table will be empty if there are no ivermectin-associated symptoms reported by any patient ever.'),
                        h5('Click a PIN to get more details below on that patient'),
                        DT::dataTableOutput('dt_symptoms'),
-                       h3('Invermectin symptoms table'),
+                       h3('Ivermectin symptoms table'),
                        helpText('The below table shows the number of consecutive days a patient has had a given symptom, as of the most recent observation. Click on the symptom to order by number of days.'),
                        DT::dataTableOutput('dt_ivermectin'))
               ),
@@ -428,95 +428,96 @@ app_server <- function(input, output, session) {
     sintomas <- paste0(sort(unique(sintomas)), collapse = ' ')
     sintomas <- sort(unique(unlist(strsplit(sintomas, ' '))))
     
-    for(j in 1:length(sintomas)){
-      this_sintoma <- sintomas[j]
-      var_name <- paste0(this_sintoma, '_iver')
-      pd[,var_name] <- NA
-      for(i in 1:nrow(pd)){
-        has_sintoma <- 
-          this_sintoma %in% pd[i,'sintomas_1'] |
-          this_sintoma %in% pd[i,'sintomas_2'] |
-          this_sintoma %in% pd[i,'sintomas_3'] 
-        pd[i,var_name] <- has_sintoma
+    if(length(sintomas) > 0){
+      for(j in 1:length(sintomas)){
+        this_sintoma <- sintomas[j]
+        var_name <- paste0(this_sintoma, '_iver')
+        pd[,var_name] <- NA
+        for(i in 1:nrow(pd)){
+          has_sintoma <- 
+            this_sintoma %in% pd[i,'sintomas_1'] |
+            this_sintoma %in% pd[i,'sintomas_2'] |
+            this_sintoma %in% pd[i,'sintomas_3'] 
+          pd[i,var_name] <- has_sintoma
+        }
       }
+      pd <- pd %>%
+        group_by(pin) %>%
+        mutate(max_date = max(date[!is.na(instanceID)])) %>%
+        ungroup %>%
+        # Don't keep anything after max date
+        filter(date <= max_date) %>%
+        group_by(pin) %>%
+        summarise(max_date = max(date[!is.na(instanceID)]),
+                  colores_formas_anormales_iver_last = dplyr::last(colores_formas_anormales_iver),
+                  colores_formas_anormales_iver_days = dplyr::last(sequence(rle(as.character(colores_formas_anormales_iver))$lengths)),
+                  colores_formas_anormales_iver_days = ifelse(!colores_formas_anormales_iver_last, 0, colores_formas_anormales_iver_days),
+                  
+                  
+                  Confusion_iver_last = dplyr::last(Confusion_iver),
+                  Confusion_iver_days = dplyr::last(sequence(rle(as.character(Confusion_iver))$lengths)),
+                  Confusion_iver_days = ifelse(!Confusion_iver_last, 0, Confusion_iver_days),
+                  
+                  dificultad_para_enfocar_objetos_iver_last = dplyr::last(dificultad_para_enfocar_objetos_iver),
+                  dificultad_para_enfocar_objetos_iver_days = dplyr::last(sequence(rle(as.character(dificultad_para_enfocar_objetos_iver))$lengths)),
+                  dificultad_para_enfocar_objetos_iver_days = ifelse(!dificultad_para_enfocar_objetos_iver_last, 0, dificultad_para_enfocar_objetos_iver_days),
+                  
+                  Mareos_iver_last = dplyr::last(Mareos_iver),
+                  Mareos_iver_days = dplyr::last(sequence(rle(as.character(Mareos_iver))$lengths)),
+                  Mareos_iver_days = ifelse(!Mareos_iver_last, 0, Mareos_iver_days),
+                  
+                  prurito_iver_last = dplyr::last(prurito_iver),
+                  prurito_iver_days = dplyr::last(sequence(rle(as.character(prurito_iver))$lengths)),
+                  prurito_iver_days = ifelse(!prurito_iver_last, 0, prurito_iver_days),
+                  
+                  puntos_ciegos_iver_last = dplyr::last(puntos_ciegos_iver),
+                  puntos_ciegos_iver_days = dplyr::last(sequence(rle(as.character(puntos_ciegos_iver))$lengths)),
+                  puntos_ciegos_iver_days = ifelse(!puntos_ciegos_iver_last, 0, puntos_ciegos_iver_days),
+                  
+                  puntos_flotantes_iver_last = dplyr::last(puntos_flotantes_iver),
+                  puntos_flotantes_iver_days = dplyr::last(sequence(rle(as.character(puntos_flotantes_iver))$lengths)),
+                  puntos_flotantes_iver_days = ifelse(!puntos_flotantes_iver_last, 0, puntos_flotantes_iver_days),
+                  
+                  sarpullido_iver_last = dplyr::last(sarpullido_iver),
+                  sarpullido_iver_days = dplyr::last(sequence(rle(as.character(sarpullido_iver))$lengths)),
+                  sarpullido_iver_days = ifelse(!sarpullido_iver_last, 0, sarpullido_iver_days),
+                  
+                  Somnolencia_iver_last = dplyr::last(Somnolencia_iver),
+                  Somnolencia_iver_days = dplyr::last(sequence(rle(as.character(Somnolencia_iver))$lengths)),
+                  Somnolencia_iver_days = ifelse(!Somnolencia_iver_last, 0, Somnolencia_iver_days),
+                  
+                  Temblores_iver_last = dplyr::last(Temblores_iver),
+                  Temblores_iver_days = dplyr::last(sequence(rle(as.character(Temblores_iver))$lengths)),
+                  Temblores_iver_days = ifelse(!Temblores_iver_last, 0, Temblores_iver_days),
+                  
+                  Vertigo_iver_last = dplyr::last(Vertigo_iver),
+                  Vertigo_iver_days = dplyr::last(sequence(rle(as.character(Vertigo_iver))$lengths)),
+                  Vertigo_iver_days = ifelse(!Vertigo_iver_last, 0, Vertigo_iver_days),
+                  
+                  vision_borrosa_iver_last = dplyr::last(vision_borrosa_iver),
+                  vision_borrosa_iver_days = dplyr::last(sequence(rle(as.character(vision_borrosa_iver))$lengths)),
+                  vision_borrosa_iver_days = ifelse(!vision_borrosa_iver_last, 0, vision_borrosa_iver_days),
+                  
+                  vision_de_tunel_iver_last = dplyr::last(vision_de_tunel_iver),
+                  vision_de_tunel_iver_days = dplyr::last(sequence(rle(as.character(vision_de_tunel_iver))$lengths)),
+                  vision_de_tunel_iver_days = ifelse(!vision_de_tunel_iver_last, 0, vision_de_tunel_iver_days)
+        ) %>%
+        ungroup %>%
+        # Remove column names with "last"
+        dplyr::select(-contains('_last')) %>%
+        # Rename column
+        dplyr::rename(`Last observation` = max_date)
+      # Remove the "days" from column names
+      names(pd) <- gsub('_iver', '', names(pd))
+      names(pd) <- gsub('_days', '', names(pd))
+      
+      # save(pd, file = '/tmp/tmp2.RData')
+      names(pd) <- gsub('_', ' ', names(pd))
+      names(pd) <- tolower(names(pd))
+      pd
+    } else {
+      NULL
     }
-    
-    
-    
-    pd <- pd %>%
-      group_by(pin) %>%
-      mutate(max_date = max(date[!is.na(instanceID)])) %>%
-      ungroup %>%
-      # Don't keep anything after max date
-      filter(date <= max_date) %>%
-      group_by(pin) %>%
-      summarise(max_date = max(date[!is.na(instanceID)]),
-                colores_formas_anormales_iver_last = dplyr::last(colores_formas_anormales_iver),
-                colores_formas_anormales_iver_days = dplyr::last(sequence(rle(as.character(colores_formas_anormales_iver))$lengths)),
-                colores_formas_anormales_iver_days = ifelse(!colores_formas_anormales_iver_last, 0, colores_formas_anormales_iver_days),
-                
-                
-                Confusion_iver_last = dplyr::last(Confusion_iver),
-                Confusion_iver_days = dplyr::last(sequence(rle(as.character(Confusion_iver))$lengths)),
-                Confusion_iver_days = ifelse(!Confusion_iver_last, 0, Confusion_iver_days),
-                
-                dificultad_para_enfocar_objetos_iver_last = dplyr::last(dificultad_para_enfocar_objetos_iver),
-                dificultad_para_enfocar_objetos_iver_days = dplyr::last(sequence(rle(as.character(dificultad_para_enfocar_objetos_iver))$lengths)),
-                dificultad_para_enfocar_objetos_iver_days = ifelse(!dificultad_para_enfocar_objetos_iver_last, 0, dificultad_para_enfocar_objetos_iver_days),
-                
-                Mareos_iver_last = dplyr::last(Mareos_iver),
-                Mareos_iver_days = dplyr::last(sequence(rle(as.character(Mareos_iver))$lengths)),
-                Mareos_iver_days = ifelse(!Mareos_iver_last, 0, Mareos_iver_days),
-                
-                prurito_iver_last = dplyr::last(prurito_iver),
-                prurito_iver_days = dplyr::last(sequence(rle(as.character(prurito_iver))$lengths)),
-                prurito_iver_days = ifelse(!prurito_iver_last, 0, prurito_iver_days),
-                
-                puntos_ciegos_iver_last = dplyr::last(puntos_ciegos_iver),
-                puntos_ciegos_iver_days = dplyr::last(sequence(rle(as.character(puntos_ciegos_iver))$lengths)),
-                puntos_ciegos_iver_days = ifelse(!puntos_ciegos_iver_last, 0, puntos_ciegos_iver_days),
-                
-                puntos_flotantes_iver_last = dplyr::last(puntos_flotantes_iver),
-                puntos_flotantes_iver_days = dplyr::last(sequence(rle(as.character(puntos_flotantes_iver))$lengths)),
-                puntos_flotantes_iver_days = ifelse(!puntos_flotantes_iver_last, 0, puntos_flotantes_iver_days),
-                
-                sarpullido_iver_last = dplyr::last(sarpullido_iver),
-                sarpullido_iver_days = dplyr::last(sequence(rle(as.character(sarpullido_iver))$lengths)),
-                sarpullido_iver_days = ifelse(!sarpullido_iver_last, 0, sarpullido_iver_days),
-                
-                Somnolencia_iver_last = dplyr::last(Somnolencia_iver),
-                Somnolencia_iver_days = dplyr::last(sequence(rle(as.character(Somnolencia_iver))$lengths)),
-                Somnolencia_iver_days = ifelse(!Somnolencia_iver_last, 0, Somnolencia_iver_days),
-                
-                Temblores_iver_last = dplyr::last(Temblores_iver),
-                Temblores_iver_days = dplyr::last(sequence(rle(as.character(Temblores_iver))$lengths)),
-                Temblores_iver_days = ifelse(!Temblores_iver_last, 0, Temblores_iver_days),
-                
-                Vertigo_iver_last = dplyr::last(Vertigo_iver),
-                Vertigo_iver_days = dplyr::last(sequence(rle(as.character(Vertigo_iver))$lengths)),
-                Vertigo_iver_days = ifelse(!Vertigo_iver_last, 0, Vertigo_iver_days),
-                
-                vision_borrosa_iver_last = dplyr::last(vision_borrosa_iver),
-                vision_borrosa_iver_days = dplyr::last(sequence(rle(as.character(vision_borrosa_iver))$lengths)),
-                vision_borrosa_iver_days = ifelse(!vision_borrosa_iver_last, 0, vision_borrosa_iver_days),
-                
-                vision_de_tunel_iver_last = dplyr::last(vision_de_tunel_iver),
-                vision_de_tunel_iver_days = dplyr::last(sequence(rle(as.character(vision_de_tunel_iver))$lengths)),
-                vision_de_tunel_iver_days = ifelse(!vision_de_tunel_iver_last, 0, vision_de_tunel_iver_days)
-      ) %>%
-      ungroup %>%
-      # Remove column names with "last"
-      dplyr::select(-contains('_last')) %>%
-      # Rename column
-      dplyr::rename(`Last observation` = max_date)
-    # Remove the "days" from column names
-    names(pd) <- gsub('_iver', '', names(pd))
-    names(pd) <- gsub('_days', '', names(pd))
-    
-    # save(pd, file = '/tmp/tmp2.RData')
-    names(pd) <- gsub('_', ' ', names(pd))
-    names(pd) <- tolower(names(pd))
-    pd
   })
   
   
@@ -542,27 +543,31 @@ app_server <- function(input, output, session) {
     data_list$participant <- the_participant
   })
   
-  observeEvent(input$dt_ivermectin_rows_selected,{
-    row = input$dt_ivermectin_rows_selected
-    # print(row)
-    pd <- data_ivermectin()
-    the_participant <- pd$pin[row]
-    data_list$participant <- the_participant
-  })
-  
   output$dt_ivermectin <- DT::renderDataTable({
     li <- logged_in()
     if(li){
       pd <- data_ivermectin()
-      pd
+      return(pd)
     } else {
-      NULL
+      return(NULL)
     }
     
   },
   selection = 'single',
   rownames= FALSE,
   options = list(scrollX = TRUE))
+  
+  observeEvent(input$dt_ivermectin_rows_selected,{
+    row = input$dt_ivermectin_rows_selected
+    if(!is.null(row)){
+      # print(row)
+      pd <- data_ivermectin()
+      the_participant <- pd$pin[row]
+      data_list$participant <- the_participant
+    }
+  })
+  
+
   
   output$participant_ui <- renderUI({
     pin <- data_list$participant
