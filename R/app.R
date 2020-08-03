@@ -667,6 +667,7 @@ app_server <- function(input, output, session) {
       }
       full_data <- full_data %>%
         dplyr::select(!contains('sintomas_'))
+      
       names(full_data) <- gsub('_', ' ', names(full_data))
       
       
@@ -676,6 +677,26 @@ app_server <- function(input, output, session) {
                           key = sort(unique(full_data$key)))
       joined <- left_join(left, full_data)
       joined$key <- Hmisc::capitalize(joined$key)
+      ivermectin_symptoms <- Hmisc::capitalize(gsub('_', ' ', sintomas))
+      non_ivermectin_symptoms <- sort(unique(joined$key))[!sort(unique(joined$key)) %in% ivermectin_symptoms]
+      joined$value <- ifelse(is.na(joined$value),
+                             'No contesta', joined$value)
+      joined$value <- ifelse(joined$key %in% ivermectin_symptoms &
+                               joined$value == 'Si',
+                           'Si (síntoma ivermectina)',
+                           joined$value)
+      levs <- (c((sort(ivermectin_symptoms)),
+                (sort(non_ivermectin_symptoms))))
+      joined$key <- factor(joined$key,
+                           levels = levs)
+      print(sort(unique(joined$value)))
+      joined$value <- factor(joined$value,
+                             levels = c('No',
+                                        'No contesta',
+                                        'Si',
+                                        'Si (síntomas ivermectina)'))
+      joined$iver <- ifelse(joined$key %in% ivermectin_symptoms,
+                            'Ivermectin', 'Covid-19')
       output$plot_grid <- renderPlot({
         ggplot(data = joined,
                aes(x = date,
@@ -683,8 +704,11 @@ app_server <- function(input, output, session) {
                    fill = value)) +
           geom_tile(color = 'black', size = 0.1) +
           scale_fill_manual(name = '',
-                            values = c('lightblue', 'darkorange', 'white')) +
+                            values = c('lightblue', 'white',
+                                       'darkorange', 'red')) +
           theme_saint() +
+          # facet_wrap(~iver, scales = 'free',
+          #            ncol = 1) +
           labs(x = 'Date',
                y = 'Symptom',
                title = paste0('Symptoms over time'),
