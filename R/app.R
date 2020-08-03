@@ -423,7 +423,20 @@ app_server <- function(input, output, session) {
     pd <- pd %>% arrange(pin, date)
     
     # Generate new variables
-    sintomas <- unique(c(pd$sintomas_1, pd$sintomas_2, pd$sintomas_3))
+    # sintomas <- unique(c(pd$sintomas_1, pd$sintomas_2, pd$sintomas_3))
+    sintomas <- c('Confusion',
+                  'Mareos',
+                  'Somnolencia',
+                  'Vertigo',
+                  'Temblores',
+                  'vision_borrosa', 
+                  'dificultad_para_enfocar_objetos',
+                  'vision_de_tunel',
+                  'colores_formas_anormales',  
+                  'puntos_ciegos',
+                  'puntos_flotantes',
+                  'prurito',
+                  'sarpullido')
     sintomas <- sintomas[!is.na(sintomas)]
     sintomas <- paste0(sort(unique(sintomas)), collapse = ' ')
     sintomas <- sort(unique(unlist(strsplit(sintomas, ' '))))
