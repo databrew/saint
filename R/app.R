@@ -589,6 +589,8 @@ app_server <- function(input, output, session) {
     } else {
       the_pin <- pin
       full_data <- data_list$data
+      # save(full_data, file = '~/Desktop/temp.RData')
+      # load('~/Desktop/temp.RData')
       temp_data <- 
         full_data <- 
         full_data %>%
@@ -613,14 +615,67 @@ app_server <- function(input, output, session) {
         mutate(date  = as.Date(date))
       
       full_data <- full_data  %>%
-        dplyr::select(date = start_time, contains('si_no')) %>%
+        # dplyr::select(date = start_time, contains('si_no')) %>%
+        dplyr::select(date = start_time, 
+                      malestar_si_no,
+                      temp_si_no,
+                      fiebre,
+                      tos_si_no,
+                      olores,
+                      mal_sabor,
+                      dolor_cabeza,
+                      dolor_garganta,
+                      congestion_si_no,
+                      fatiga_si_no,
+                      vomitos_si_no,
+                      diarrea_si_no,
+                      medicacion_si_no,
+                      sintomas_1,
+                      sintomas_2,
+                      sintomas_3) %>%
         mutate(date  = as.Date(date))
       names(full_data) <- gsub('_si_no', '', names(full_data))
+      
+      # Get ivermectin symptoms in table too
+      sintomas <- c('Confusion',
+                    'Mareos',
+                    'Somnolencia',
+                    'Vertigo',
+                    'Temblores',
+                    'vision_borrosa', 
+                    'dificultad_para_enfocar_objetos',
+                    'vision_de_tunel',
+                    'colores_formas_anormales',  
+                    'puntos_ciegos',
+                    'puntos_flotantes',
+                    'prurito',
+                    'sarpullido')
+      for(j in 1:length(sintomas)){
+        this_sintoma <- sintomas[j]
+        full_data[,this_sintoma] <- 'No'
+      }
+      for(i in 1:nrow(full_data)){
+        for(j in 1:length(sintomas)){
+          this_sintoma <- sintomas[j]
+          this_sub_row <- full_data[i,grepl('sintomas_', names(full_data))]
+          this_sub_value <- paste0(this_sub_row, collapse = ' ')
+          out <- grepl(this_sintoma, this_sub_value)
+          if(out){
+            full_data[i,this_sintoma] <- 'Si'
+          }
+        }
+      }
       full_data <- full_data %>%
-        tidyr::gather(key, value, congestion:vomitos)
+        dplyr::select(!contains('sintomas_'))
+      names(full_data) <- gsub('_', ' ', names(full_data))
+      
+      
+      full_data <- full_data %>%
+        tidyr::gather(key, value, malestar:sarpullido)
       left <- expand.grid(date = seq(min(full_data$date), max(full_data$date), 1),
                           key = sort(unique(full_data$key)))
       joined <- left_join(left, full_data)
+      joined$key <- Hmisc::capitalize(joined$key)
       output$plot_grid <- renderPlot({
         ggplot(data = joined,
                aes(x = date,
@@ -632,7 +687,10 @@ app_server <- function(input, output, session) {
           theme_saint() +
           labs(x = 'Date',
                y = 'Symptom',
-               title = paste0('Symptoms over time for participant ', data_list$participant))
+               title = paste0('Symptoms over time'),
+               subtitle = paste0('participant ', data_list$participant)) +
+          scale_y_discrete(limits = rev(sort(unique(joined$key)))) +
+          theme(legend.position = 'bottom')
       })
       output$plot_temperature <- 
         renderPlot({
