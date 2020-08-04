@@ -705,7 +705,9 @@ app_server <- function(input, output, session) {
           geom_tile(color = 'black', size = 0.1) +
           scale_fill_manual(name = '',
                             values = c('lightblue', 'white',
-                                       'darkorange', 'red')) +
+                                       'darkorange', 'red'),
+                            drop=TRUE,
+                            limits = levels(joined$value)) +
           theme_saint() +
           # facet_wrap(~iver, scales = 'free',
           #            ncol = 1) +
