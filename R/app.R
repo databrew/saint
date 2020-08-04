@@ -689,12 +689,12 @@ app_server <- function(input, output, session) {
                 (sort(non_ivermectin_symptoms))))
       joined$key <- factor(joined$key,
                            levels = levs)
-      print(sort(unique(joined$value)))
+      # print(sort(unique(joined$value)))
       joined$value <- factor(joined$value,
                              levels = c('No',
                                         'No contesta',
                                         'Si',
-                                        'Si (síntomas ivermectina)'))
+                                        'Si (síntoma ivermectina)'))
       joined$iver <- ifelse(joined$key %in% ivermectin_symptoms,
                             'Ivermectin', 'Covid-19')
       output$plot_grid <- renderPlot({
