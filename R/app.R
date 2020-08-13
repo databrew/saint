@@ -750,8 +750,44 @@ app_server <- function(input, output, session) {
                    y = 'Celcius',
                    title = paste0('Temperature over time for participant ', data_list$participant))
           }
-
         })
+      
+      output$plot_time <- renderPlot({
+        the_pin <- pin
+        # save(full_data, file = '~/Desktop/temp.RData')
+        # load('~/Desktop/temp.RData')
+        if(is.null(the_pin)){
+          NULL
+        } else {
+          full_data <- data_list$data
+          pd <- full_data %>% filter(pin == the_pin)
+          # Deal with date
+          date_var <- input$date_var
+          if(date_var == 'Fecha de referencia'){
+            pd$date <- pd$fecha
+          } else {
+            pd$date <- pd$end_time
+          }
+          right <- pd %>%
+            group_by(date = as.Date(date)) %>%
+            tally
+          left <- data.frame(date = seq(min(right$date), Sys.Date(), by = 1))
+          pd <- left_join(left, right) %>% mutate(n = ifelse(is.na(n), 0, n))
+          ggplot(data = pd,
+                 aes(x = date,
+                     y = n)) +
+            geom_bar(stat = 'identity', fill = 'black') +
+            geom_text(aes(label = n),
+                      nudge_y = 0.1) +
+            labs(x = 'Fecha',
+                 y = 'Formularios',
+                 title = paste0('Formularios por dia'),
+                 subtitle = paste0('Participant ', the_pin)) +
+            scale_x_date(breaks = sort(unique(pd$date))) +
+            theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5))
+          
+        }
+      })
       
       output$medication_table <- 
         render_gt({
@@ -767,6 +803,11 @@ app_server <- function(input, output, session) {
           column(6,
                  plotOutput('plot_temperature'))
         ),
+        fluidRow(column(12, align = 'center',
+                        selectInput('date_var', '¿Qué tipo de fecha?',
+                                    choices = c('Fecha de referencia', 'Fecha de cuando se acabó el formulario'), 
+                                    selected = 'Fecha de referencia'),
+                        plotOutput('plot_time'))),
         fluidRow(
           column(12, align = 'center',
                  h3('Medication'),
