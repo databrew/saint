@@ -329,7 +329,7 @@ app_server <- function(input, output, session) {
   data_symptoms <- reactive({
     pd <- data_list$data
     pd <- pd %>%
-      mutate(date = as.Date(end_time)) %>%
+      mutate(date = as.Date(fecha)) %>%
       arrange(pin,
               date) %>%
       filter(!is.na(pin)) %>%
@@ -403,7 +403,7 @@ app_server <- function(input, output, session) {
   data_ivermectin <- reactive({
     pd <- data_list$data
     pd <- pd %>%
-      mutate(date = as.Date(end_time)) %>%
+      mutate(date = as.Date(fecha)) %>%
       arrange(pin,
               date) %>%
       filter(!is.na(pin)) %>%
@@ -599,7 +599,7 @@ app_server <- function(input, output, session) {
       # Medication data
       if(nrow(full_data) > 0){
         med_data <- full_data %>%
-          arrange(end_time) %>%
+          arrange(fecha) %>%
           mutate(medicacion_cual = ifelse(is.na(medicacion_cual), 'None', medicacion_cual)) %>%
           summarise(`All medications taken` = paste0(sort(unique(medicacion_cual)), collapse = ', '),
                     `Medications taken, most recent form` = dplyr::last(medicacion_cual)) 
@@ -611,12 +611,12 @@ app_server <- function(input, output, session) {
       
       # Temperature data
       temp_data <- temp_data %>%
-        dplyr::select(date = start_time, temp) %>%
+        dplyr::select(date = fecha, temp) %>%
         mutate(date  = as.Date(date))
       
       full_data <- full_data  %>%
         # dplyr::select(date = start_time, contains('si_no')) %>%
-        dplyr::select(date = start_time, 
+        dplyr::select(date = fecha, 
                       malestar_si_no,
                       temp_si_no,
                       fiebre,
@@ -820,7 +820,7 @@ app_server <- function(input, output, session) {
   output$plot_forms <- renderPlot({
     pd <- data_list$data
     pd <- pd %>%
-      group_by(date = as.Date(end_time),
+      group_by(date = as.Date(fecha),
                pin) %>%
       tally %>%
       ungroup %>%
