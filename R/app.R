@@ -227,7 +227,8 @@ app_server <- function(input, output, session) {
   output$ts_ui <- renderUI({
     li <- logged_in()
     if(li){
-      out <- data_list$ts
+      out <- as.POSIXct(data_list$ts) + hours(0)
+      out <- as.character(out)
       fluidPage(
         helpText('Updated at:'),
         helpText(out)
