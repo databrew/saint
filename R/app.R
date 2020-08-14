@@ -227,7 +227,7 @@ app_server <- function(input, output, session) {
   output$ts_ui <- renderUI({
     li <- logged_in()
     if(li){
-      out <- as.POSIXct(data_list$ts) + hours(0)
+      out <- as.POSIXct(data_list$ts) + hours(2) # this will be wrong locally, correct on server
       out <- as.character(out)
       fluidPage(
         helpText('Updated at:'),
