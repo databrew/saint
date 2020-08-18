@@ -197,10 +197,28 @@ app_server <- function(input, output, session) {
   
   # Observe the action button (or app start) to load data
   observeEvent(input$action, {
-    # Get data
-    df <- get_data(data_file = paste0(getwd(), '/data.csv'),
-             user = yaml::read_yaml('credentials/credentials.yaml')$user,
-             password = yaml::read_yaml('credentials/credentials.yaml')$password)
+    
+    # Get whether Peru or not
+    peru <- yaml::read_yaml('credentials/credentials.yaml')$peru
+    if(is.null(peru)){
+      peru <- FALSE
+    }
+    message('PERU IS...')
+    print(peru)
+    if(peru){
+      df <- get_data(data_file = paste0(getwd(), '/data_peru.csv'),
+                     user = yaml::read_yaml('credentials/credentials.yaml')$user,
+                     password = yaml::read_yaml('credentials/credentials.yaml')$password,
+                     form_id = 'saintperu')
+    } else {
+      # Get data 
+      df <- get_data(data_file = paste0(getwd(), '/data.csv'),
+                     user = yaml::read_yaml('credentials/credentials.yaml')$user,
+                     password = yaml::read_yaml('credentials/credentials.yaml')$password)
+    }
+    
+    
+    
     message('Got new df')
     data_list$data <- df
     message('Stuck new df in reactive list')
@@ -329,6 +347,7 @@ app_server <- function(input, output, session) {
   
   data_symptoms <- reactive({
     pd <- data_list$data
+    # save(pd, file = '/tmp/pd.RData')
     pd <- pd %>%
       mutate(date = as.Date(fecha)) %>%
       arrange(pin,

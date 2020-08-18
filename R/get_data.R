@@ -3,7 +3,8 @@
 #' @import lubridate
 get_data <- function(data_file = 'data.csv',
                      user = '',
-                     password = '') {
+                     password = '',
+                     form_id = 'saint') {
   # Get list of current data
   if(file.exists(data_file)){
     data <- read_csv(data_file)
@@ -16,9 +17,15 @@ get_data <- function(data_file = 'data.csv',
   exclude_these <- data$instanceID
   exclude_these <- exclude_these[!is.na(exclude_these)]
   
+  if(form_id == 'saintperu'){
+    id2 = 'data'
+  } else {
+    id2 = NULL
+  }
   # Retrieve ODK data
   df <- odk_get_data(url = 'https://bohemia.systems', 
-                     id = 'saint', 
+                     id = form_id, 
+                     id2 = id2,
                      user = user, 
                      password = password,
                      exclude_uuids = exclude_these)
@@ -40,6 +47,11 @@ get_data <- function(data_file = 'data.csv',
   }
   # combined$end_time <- as.POSIXct(combined$end_time) - lubridate::hours(2)
   attr(combined$end_time, 'tzone') <- 'Europe/Paris'
+  
+  # Manual correction
+  if('uuid:9d2dd549-74c3-4088-8051-8767a7cc1bb4' %in% combined$instanceID){
+    combined$fecha[combined$instanceID == 'uuid:9d2dd549-74c3-4088-8051-8767a7cc1bb4'] <- '2020-08-17'
+  }
   
   return(combined)
 }
