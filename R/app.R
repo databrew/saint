@@ -318,6 +318,13 @@ app_server <- function(input, output, session) {
             rows = is.na(`Last form`)
           )
         ) %>%
+        # Mark as done those who are done
+        tab_style(
+          style = cell_fill(color = "#000000"),
+          locations = cells_body(
+            rows = as.numeric(as.character(pin)) %in% c(20, 22)
+          )
+        ) %>%
         # Bolden pin
         tab_style(
           style = cell_text(size = px(15), weight = "bold", font = "arial"),
