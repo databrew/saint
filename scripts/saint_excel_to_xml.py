@@ -1,41 +1,17 @@
-import pygsheets
-import xlrd
+import ezsheets
 import os
 import shutil
-#import numpy as np
+os.chdir('../credentials')
 
-# Authorize by using this: https://pygsheets.readthedocs.io/en/latest/authorization.html
-gc = pygsheets.authorize('../credentials/gsheets_oauth.json')
-
-# Define the documents
-# docs = ['censushouse', 'censusmember']
-#for doc in docs:
-    # Open spreadsheet and then workseet
-#    sh = gc.open(doc)
-#    wks = sh.sheet1
-
-    #export as xls
-#    wks.export(pygsheets.ExportType.XLS, doc)
-
-    ## Convert to xml
-#    os.system('xls2xform ' + doc + '.xls ' + doc +'.xml')
-
-doc = 'saint'
-sh = gc.open(doc)
-wks = sh.sheet1
-
-#export as xls
-wks.export(pygsheets.ExportType.XLS, doc)
-
-# Rename
-os.rename(doc + '.xls' ,'saint.xls')
-
+s = ezsheets.Spreadsheet('https://docs.google.com/spreadsheets/d/1buZrczeSuU_B9Nv7aLDia8wUnsa4sbNXiv6oALm2Hr8/edit#gid=0')
+s.downloadAsExcel()
 
 ## Convert to xml
-os.system('xls2xform ' + 'saint' + '.xls ' + 'saint' +'.xml')
+os.system('xls2xform saintperu.xlsx saintperu.xml ')
 
 # Move
-shutil.move(doc + '.xls', "../forms/" + doc + '/' + doc + '.xls')
-shutil.move(doc + '.xml', "../forms/" + doc + '/' + doc + '.xml')
+shutil.move('saintperu.xlsx', '../forms/saintperu.xlsx')
+shutil.move('saintperu.xml',  '../forms/saintperu.xml')
+# shutil.move('itemsets.csv', '../forms/itemsets.csv')
 
-print('Done. Docs in forms/saint')
+print('Done. Docs in forms/.')

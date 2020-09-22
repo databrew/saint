@@ -322,7 +322,7 @@ app_server <- function(input, output, session) {
         tab_style(
           style = cell_fill(color = "#000000"),
           locations = cells_body(
-            rows = as.numeric(as.character(pin)) %in% c(1, 11, 21, 20, 22)
+            rows = as.numeric(as.character(pin)) %in% c(1, 11, 21, 20, 22, 24)
           )
         ) %>%
         # Bolden pin
@@ -354,14 +354,14 @@ app_server <- function(input, output, session) {
   
   data_symptoms <- reactive({
     pd <- data_list$data
-    # save(pd, file = '/tmp/pd.RData')
+    save(pd, file = '/tmp/pd.RData')
     pd <- pd %>%
       mutate(date = as.Date(fecha)) %>%
       arrange(pin,
               date) %>%
       filter(!is.na(pin)) %>%
       # Remove the old ones
-      filter(!pin %in% c(1, 11, 21, 20, 22)) %>%
+      filter(!pin %in% c(1, 11, 21, 20, 22, 24)) %>%
       # Keep only the most recent one for each date
       mutate(dummy = 1) %>%
       group_by(pin, date) %>%
@@ -370,8 +370,8 @@ app_server <- function(input, output, session) {
       ungroup %>%
       dplyr::select(-dummy)
     # Get the missing dates too
-    left <- expand.grid(date = seq(min(pd$date),
-                                   max(pd$date),
+    left <- expand.grid(date = seq(min(pd$date, na.rm = TRUE),
+                                   max(pd$date, na.rm = TRUE),
                                    by = 1),
                         pin = sort(unique(pd$pin)))
     pd <- left_join(left, pd)
@@ -437,7 +437,7 @@ app_server <- function(input, output, session) {
               date) %>%
       filter(!is.na(pin)) %>%
       # Remove the old ones
-      filter(!pin %in% c(1, 11, 21, 20, 22)) %>%
+      filter(!pin %in% c(1, 11, 21, 20, 22, 24)) %>%
       # Keep only the most recent one for each date
       mutate(dummy = 1) %>%
       group_by(pin, date) %>%
@@ -446,8 +446,8 @@ app_server <- function(input, output, session) {
       ungroup %>%
       dplyr::select(-dummy)
     # Get the missing dates too
-    left <- expand.grid(date = seq(min(pd$date),
-                                   max(pd$date),
+    left <- expand.grid(date = seq(min(pd$date, na.rm = TRUE),
+                                   max(pd$date, na.rm = TRUE),
                                    by = 1),
                         pin = sort(unique(pd$pin)))
     pd <- left_join(left, pd)
@@ -567,8 +567,10 @@ app_server <- function(input, output, session) {
   
   output$dt_symptoms <- DT::renderDataTable({
     li <- logged_in()
+    message('DT SYMPTOMS LOGGED IN IS: ', li)
     if(li){
       pd <- data_symptoms()
+      
       pd
     } else {
       NULL

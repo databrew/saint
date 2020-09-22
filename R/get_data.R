@@ -1,6 +1,15 @@
+#' Get data
+#' 
+#' Retrieve data
+#' @param data_file The data file
+#' @param user The user
+#' @param password The password
+#' @param form_id The form id
 #' @import dplyr
 #' @import readr
 #' @import lubridate
+#' @return Data is read
+#' @export
 get_data <- function(data_file = 'data.csv',
                      user = '',
                      password = '',
