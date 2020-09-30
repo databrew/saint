@@ -322,7 +322,7 @@ app_server <- function(input, output, session) {
         tab_style(
           style = cell_fill(color = "#000000"),
           locations = cells_body(
-            rows = as.numeric(as.character(pin)) %in% c(1, 2, 6, 7, 11, 18, 20, 21,  22, 24)
+            rows = as.numeric(as.character(pin)) %in% c(1, 2, 6, 7, 11, 17, 18, 20, 21, 22, 24)
           )
         ) %>%
         # Bolden pin
@@ -361,7 +361,7 @@ app_server <- function(input, output, session) {
               date) %>%
       filter(!is.na(pin)) %>%
       # Remove the old ones
-      filter(!pin %in% c(1, 2, 6, 7, 11, 18, 20, 21,  22, 24)) %>%
+      filter(!pin %in% c(1, 2, 6, 7, 11, 17, 18, 20, 21, 22, 24)) %>%
       # Keep only the most recent one for each date
       mutate(dummy = 1) %>%
       group_by(pin, date) %>%
@@ -437,7 +437,7 @@ app_server <- function(input, output, session) {
               date) %>%
       filter(!is.na(pin)) %>%
       # Remove the old ones
-      filter(!pin %in% c(1, 2, 6, 7, 11, 18, 20, 21,  22, 24)) %>%
+      filter(!pin %in% c(1, 2, 6, 7, 11, 17, 18, 20, 21, 22, 24)) %>%
       # Keep only the most recent one for each date
       mutate(dummy = 1) %>%
       group_by(pin, date) %>%
