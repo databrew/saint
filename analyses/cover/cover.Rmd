@@ -1,0 +1,276 @@
+---
+title: "Ivermectin cover charts"
+output: html_document
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = NA, 
+               echo = TRUE, 
+               warning = FALSE, 
+               message = FALSE, 
+               error = TRUE, 
+               cache = FALSE,
+  fig.path = "figures/",
+  out.width = "100%"
+)
+```
+
+```{r}
+cat('Date-time: ', Sys.time())
+## Load libraries
+library(ggplot2)
+library(lubridate)
+library(dplyr)
+library(readr)
+library(gsheet)
+library(anytime)
+library(databrew)
+options(scipen = '999')
+ggplot2::theme_set(theme_bw())
+```
+
+
+```{r cars}
+# setwd("C:/Users/acasellas/Documents/2020/01_CC_COVID19_saint/SAINT")
+# setwd('..')
+cat(getwd())
+library(readstata13)
+library(ggplot2)
+data<-data.frame(read.dta13("dta/ana/temp_symptom.dta"))
+data_wide<-data.frame(read.dta13("dta/ana/temp_symptom_wide.dta"))
+img_name <- paste("html/png/07_evolution_",names(data)[3],".png",sep="")
+img_name_prev <- paste("html/png/07_prevalence_",names(data)[3],".png",sep="")
+cols <- c("#ffffff","#327ad1")
+if(names(data)[3]=="any_symptom") {
+  symptom<-"Any symptom"
+} else if (names(data)[3]=="fiebre") {
+  symptom<-"Reported fever"
+} else if (names(data)[3]=="tos_si_no") {
+  symptom<-"Cough"
+} else if (names(data)[3]=="malestar_si_no") {
+  symptom<-"General malaise"
+} else if (names(data)[3]=="dolor_cabeza") {
+  symptom<-"Headache"
+} else if (names(data)[3]=="anosmia") {
+  symptom<-"Anosmia and/or hyposmia"
+} else if (names(data)[3]=="mal_sabor") {
+  symptom<-"Dysgeusia"
+} else if (names(data)[3]=="fatiga_si_no") {
+  symptom<-"Shortness of breath"
+} else if (names(data)[3]=="congestion_si_no") {
+  symptom<-"Nasal congestion"
+} else if (names(data)[3]=="gi") {
+  symptom<-"Gastrointestinal"
+}
+
+
+names(data)[3]<-"symptom"
+data$studyno<-factor(data$studyno,levels=data_wide$studyno)
+data<-data[which(data$day>=1),]
+```
+
+```{r}
+library(ggplot2)
+library(gridExtra)
+
+theme_black = function(base_size = 12, base_family = "") {
+  
+  theme_grey(base_size = base_size, base_family = base_family) %+replace%
+    
+    theme(
+      # Specify axis options
+      axis.line = element_blank(),  
+      axis.text.x = element_text(size = base_size*0.8, color = "white", lineheight = 0.9),  
+      axis.text.y = element_text(size = base_size*0.8, color = "white", lineheight = 0.9),  
+      axis.ticks = element_line(color = "white", size  =  0.2),  
+      axis.title.x = element_text(size = base_size, color = "white", margin = margin(0, 10, 0, 0)),  
+      axis.title.y = element_text(size = base_size, color = "white", angle = 90, margin = margin(0, 10, 0, 0)),  
+      axis.ticks.length = unit(0.3, "lines"),   
+      # Specify legend options
+      legend.background = element_rect(color = NA, fill = "black"),  
+      legend.key = element_rect(color = "white",  fill = "black"),  
+      legend.key.size = unit(1.2, "lines"),  
+      legend.key.height = NULL,  
+      legend.key.width = NULL,      
+      legend.text = element_text(size = base_size*0.8, color = "white"),  
+      legend.title = element_text(size = base_size*0.8, face = "bold", hjust = 0, color = "white"),  
+      legend.position = "right",  
+      legend.text.align = NULL,  
+      legend.title.align = NULL,  
+      legend.direction = "vertical",  
+      legend.box = NULL, 
+      # Specify panel options
+      panel.background = element_rect(fill = "black", color  =  NA),  
+      panel.border = element_rect(fill = NA, color = "white"),  
+      panel.grid.major = element_line(color = "grey35"),  
+      panel.grid.minor = element_line(color = "grey20"),  
+      panel.margin = unit(0.5, "lines"),   
+      # Specify facetting options
+      strip.background = element_rect(fill = "grey30", color = "grey10"),  
+      strip.text.x = element_text(size = base_size*0.8, color = "white"),  
+      strip.text.y = element_text(size = base_size*0.8, color = "white",angle = -90),  
+      # Specify plot options
+      plot.background = element_rect(color = "black", fill = "black"),  
+      plot.title = element_text(size = base_size*1.2, color = "white"),  
+      plot.margin = unit(rep(1, 4), "lines")
+      
+    )
+  
+}
+```
+
+```{r}
+pd <- data %>%
+  group_by(day, treat) %>%
+  summarise(n = n(),
+            yes = length(which(symptom == 'Yes')),
+            no = length(which(symptom == 'No'))) %>%
+  ungroup %>%
+  mutate(p = yes / n * 100)
+
+library(tidyverse)
+base_size <- 11
+cols <- rev(c('#5F7470','#66101F'))
+
+ggplot(data = pd,
+       aes(x = day,
+           y = p,
+           color = treat,
+           fill = treat)) +
+  geom_point(alpha = 0.3) +
+  geom_line(stat="smooth",
+              size = 3.5,
+              alpha = 0.5) +
+  theme_void(
+    base_size = 11,
+    base_family = "",
+    base_line_size = base_size/22,
+    base_rect_size = base_size/22
+  ) +
+  scale_fill_manual(name = '',
+                    values = cols) +
+  scale_color_manual(name = '',
+                    values = cols) +
+  theme(legend.position = 'bottom')
+```
+
+```{r}
+cols <- c('darkorange','lightblue')
+
+ggplot(data = pd,
+       aes(x = day,
+           y = p,
+           color = treat,
+           fill = treat)) +
+  geom_point(alpha = 0.3) +
+  geom_line(stat="smooth",
+              size = 3.5,
+              alpha = 0.5) +
+  theme_linedraw() +
+  scale_fill_manual(name = '',
+                    values = cols) +
+  scale_color_manual(name = '',
+                    values = cols) +
+  theme(legend.position = 'bottom')
+```
+
+```{r}
+cols <- c('red','darkgrey')
+
+ggplot(data = pd,
+       aes(x = day,
+           y = p,
+           color = treat,
+           fill = treat)) +
+  geom_point(alpha = 0.6) +
+  geom_line(stat="smooth",
+              size = 3.5,
+              alpha = 0.8) +
+  theme_black() +
+  scale_fill_manual(name = '',
+                    values = cols) +
+  scale_color_manual(name = '',
+                    values = cols) +
+  theme(legend.position = 'bottom') +
+  labs(x = 'Day',
+       y = '% anosmia') +
+  guides(fill=guide_legend(nrow=1,byrow=TRUE))
+
+```
+
+
+```{r}
+cols <- rev(c('#5F7470','#66101F'))
+ggplot(data = pd,
+       aes(x = day,
+           y = p,
+           color = treat,
+           fill = treat)) +
+  geom_point(alpha = 1, size = 4) +
+  geom_line(size = 3, alpha = 0.8) +
+  # geom_line(stat="smooth",
+  #             size = 3.5,
+  #             alpha = 0.8) +
+  theme_black() +
+  scale_fill_manual(name = '',
+                    values = cols) +
+  scale_color_manual(name = '',
+                    values = cols) +
+  theme(legend.position = 'bottom') +
+  labs(x = 'Day',
+       y = '% anosmia') +
+  guides(fill=guide_legend(nrow=1,byrow=TRUE))
+
+```
+
+
+```{r}
+cols <- rev(c('#5F7470','#66101F'))
+ggplot(data = pd,
+       aes(x = day,
+           y = p,
+           color = treat,
+           fill = treat)) +
+  geom_point(alpha = 1, size = 1) +
+  geom_line(size = 0.2, alpha = 0.8) +
+  geom_line(stat="smooth",
+              size = 1.4,
+              alpha = 0.8) +
+  theme_minimal() +
+  scale_fill_manual(name = '',
+                    values = cols) +
+  scale_color_manual(name = '',
+                    values = cols) +
+  theme(legend.position = 'bottom') +
+  labs(x = 'Day',
+       y = '% anosmia') +
+  guides(fill=guide_legend(nrow=1,byrow=TRUE))
+
+```
+
+
+```{r}
+cols <- rev(c('darkorange','lightblue'))
+ggplot(data = pd,
+       aes(x = day,
+           y = p,
+           color = treat,
+           fill = treat)) +
+  geom_point(alpha = 1, size = 1) +
+  geom_line(size = 0.4, alpha = 0.8) +
+  geom_line(stat="smooth",
+              size = 1.8,
+              alpha = 0.8) +
+  theme_minimal() +
+  scale_fill_manual(name = '',
+                    values = cols) +
+  scale_color_manual(name = '',
+                    values = cols) +
+  theme(legend.position = 'bottom') +
+  labs(x = 'Day',
+       y = '% anosmia') +
+  guides(fill=guide_legend(nrow=1,byrow=TRUE))
+
+```
