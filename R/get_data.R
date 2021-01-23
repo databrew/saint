@@ -14,6 +14,7 @@ get_data <- function(data_file = 'data.csv',
                      user = '',
                      password = '',
                      form_id = 'saint') {
+  message('READING DATA FILE FROM ', data_file)
   # Get list of current data
   if(file.exists(data_file)){
     data <- read_csv(data_file)
@@ -26,17 +27,20 @@ get_data <- function(data_file = 'data.csv',
   exclude_these <- data$instanceID
   exclude_these <- exclude_these[!is.na(exclude_these)]
   
-  if(form_id == 'saintperu'){
+  if(form_id %in% c('saintperu', 'saintperu2')){
     id2 = 'data'
   } else {
     id2 = NULL
   }
+  
   # Retrieve ODK data
   df <- odk_get_data(url = 'https://bohemia.systems', 
                      id = form_id, 
                      id2 = id2,
                      user = user, 
                      password = password,
+                     unknown_id2 = ifelse(form_id == 'saintperu2', T, F),
+                     # pre_auth = TRUE,
                      exclude_uuids = exclude_these)
   if(!is.null(df)){
     df <- df$non_repeats

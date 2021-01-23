@@ -13,7 +13,12 @@ odk_get_data(
   exclude_uuids = NULL,
   user = NULL,
   password = NULL,
-  widen = TRUE
+  widen = TRUE,
+  pre_auth = FALSE,
+  use_data_id = FALSE,
+  sleeper = 0.25,
+  use_progress_bar = TRUE,
+  chunk_size = 1000
 )
 }
 \arguments{
@@ -34,6 +39,16 @@ odk_get_data(
 \item{password}{The ODK Aggregate password}
 
 \item{widen}{Whether to widen}
+
+\item{use_data_id}{Whether to substitute the id2 field with "data" in the submission retrieval URL}
+
+\item{sleeper}{How long to sleep between requests (seconds)}
+
+\item{use_progress_bar}{Whether to show a progress bar instead of messages for each form}
+
+\item{chunk_size}{The chunk size for pagination}
+
+\item{pre-auth}{Pre-authenticate (needed for Manhica server)}
 }
 \value{
 A list of dataframes

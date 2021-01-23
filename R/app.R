@@ -50,11 +50,11 @@ app_ui <- function(request) {
             #            tabPanel(title = "Overview",
             fluidPage(
               fluidRow(
-                column(4,
-                       h3('Most recent submissions'),
-                       helpText('Blue = already submitted today. Yellow = not yet submitted today. Red = never submitted'),
-                       gt_output('dt_missing')),
-                column(8,
+                # column(4,
+                #        h3('Most recent submissions'),
+                #        helpText('Blue = already submitted today. Yellow = not yet submitted today. Red = never submitted'),
+                #        gt_output('dt_missing')),
+                column(12,
                        h3('Symptoms table'),
                        helpText('The below table shows the number of consecutive days a patient has had a given symptom, as of the most recent observation. Click on the symptom to order by number of days. NOTE: this table will be empty if there are no ivermectin-associated symptoms reported by any patient ever.'),
                        h5('Click a PIN to get more details below on that patient'),
@@ -209,7 +209,7 @@ app_server <- function(input, output, session) {
       df <- get_data(data_file = paste0(getwd(), '/data_peru.csv'),
                      user = yaml::read_yaml('credentials/credentials.yaml')$user,
                      password = yaml::read_yaml('credentials/credentials.yaml')$password,
-                     form_id = 'saintperu')
+                     form_id = 'saintperu2')
     } else {
       # Get data 
       df <- get_data(data_file = paste0(getwd(), '/data.csv'),
@@ -234,7 +234,7 @@ app_server <- function(input, output, session) {
     li <- logged_in()
     if(li){
       out <- data_list$data
-      out
+      prettify(out, download_options = TRUE, nrows = nrow(out))
     } else {
       NULL
     }

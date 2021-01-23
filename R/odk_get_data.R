@@ -10,22 +10,33 @@
 #' @param user The ODK Aggregate username
 #' @param password The ODK Aggregate password
 #' @param widen Whether to widen
+#' @param pre-auth Pre-authenticate (needed for Manhica server)
+#' @param use_data_id Whether to substitute the id2 field with "data" in the submission retrieval URL
+#' @param sleeper How long to sleep between requests (seconds)
+#' @param use_progress_bar Whether to show a progress bar instead of messages for each form
+#' @param chunk_size The chunk size for pagination
 #' @import httr
 #' @import xml2
 #' @import dplyr
 #' @return A list of dataframes
+#' @import progress
 #' @export
 
 
 odk_get_data <- function(url = 'https://bohemia.systems',
-                              id = 'recon',
-                              id2 = NULL,
-                              unknown_id2 = FALSE,
-                              uuids = NULL,
-                              exclude_uuids = NULL,
-                              user = NULL,
-                              password = NULL,
-                              widen = TRUE){
+                         id = 'recon',
+                         id2 = NULL,
+                         unknown_id2 = FALSE,
+                         uuids = NULL,
+                         exclude_uuids = NULL,
+                         user = NULL,
+                         password = NULL,
+                         widen = TRUE,
+                         pre_auth = FALSE,
+                         use_data_id = FALSE, 
+                         sleeper = 0.25,
+                         use_progress_bar = TRUE,
+                         chunk_size = 1000){
   
   # Ensure that username and password are provided
   if(is.null(user) | is.null(password)){
@@ -34,7 +45,7 @@ odk_get_data <- function(url = 'https://bohemia.systems',
   
   # Get the forms available at the url given
   message('---Fetching the forms list at ', url)
-  fl <- odk_list_forms(url = url, user = user, password = password)
+  fl <- odk_list_forms(url = url, user = user, password = password, pre_auth = pre_auth)
   # If the requested id is not available, stop
   if(!id %in% fl$id){
     message('The form with id "', id, '" is not listed at ', url, '.\nThe listed form ids are:\n')
@@ -45,7 +56,7 @@ odk_get_data <- function(url = 'https://bohemia.systems',
   # Get the id2 if needed
   if(unknown_id2){
     message('---Fetching the secondary id for ', id)
-    id2 <- odk_get_secondary_id(id = id)
+    id2 <- odk_get_secondary_id(url = url, id = id)
   } else if(is.null(id2)){
     id2 <- id
   }
@@ -54,7 +65,9 @@ odk_get_data <- function(url = 'https://bohemia.systems',
   submissions <- odk_list_submissions(url = url,
                                       id = id,
                                       user = user,
-                                      password = password)
+                                      password = password,
+                                      pre_auth = pre_auth,
+                                      chunk_size = chunk_size)
   # If no submissions, stop
   if(length(submissions) == 0){
     message('No submissions are available for the form with id: ', id, ' at ', url, '.\nReturning an empty vector')
@@ -63,6 +76,10 @@ odk_get_data <- function(url = 'https://bohemia.systems',
   
   # If there are submissions, we need to conform them to the list of given uuids and exclude_uuids
   if(!is.null(uuids)){
+    # Add the uuid string if necessary
+    if(!grepl('uuid', uuids[1])){
+      uuids <- paste0('uuid:', uuids)
+    }
     submissions <- submissions[submissions %in% uuids]
   }
   # If no remaining submissions, stop
@@ -71,6 +88,9 @@ odk_get_data <- function(url = 'https://bohemia.systems',
     return(c())
   } 
   if(!is.null(exclude_uuids)){
+    if(!grepl('uuid', exclude_uuids[1])){
+      exclude_uuids <- paste0('uuid:', exclude_uuids)
+    }
     submissions <- submissions[!submissions %in% exclude_uuids]
   }
   if(length(submissions) == 0){
@@ -80,27 +100,53 @@ odk_get_data <- function(url = 'https://bohemia.systems',
   
   # Now loop through each uuid and get the data
   data_list <- list()
-  for(i in 1:length(submissions)){
-    Sys.sleep(0.15)
-    message('| Working on retrieving submission ', i, ' of ', length(submissions))
-    this_uuid <- submissions[i]
-    # Capture the data for this uuid
-    submission <- odk_get_submission(url = url, 
-                                     id = id,
-                                     id2 = id2,
-                                     uuid = this_uuid, 
-                                     user = user, 
-                                     password = password)
-    # Parse the submission into R format
-    parsed <- odk_parse_submission(xml = submission)
-   
-    # Pop reformatted data into list
-    data_list[[i]] <- parsed
+  if(use_progress_bar){
+    pb <- txtProgressBar(min = 0, max = length(submissions), style = 3)
+    # pb <- progress::progress_bar$new(format = "[:bar] :current/:total (:percent)", total = length(submissions))
+    # pb$tick(0)
   }
+  
+  counter <- 0
+  message('Going to attempt to retrieve ', length(submissions), ' submissions.')
+  for(i in 1:length(submissions)){
+    
+    if(use_progress_bar){
+      # pb$tick(i)
+      setTxtProgressBar(pb, i)
+    } else {
+      message('| Working on retrieving submission ', i, ' of ', length(submissions))
+    }
+    
+    Sys.sleep(sleeper)
+    this_uuid <- submissions[i]
+    
+    res <- try({
+      # Capture the data for this uuid
+      submission <- odk_get_submission(url = url, 
+                                       id = id,
+                                       id2 = id2,
+                                       uuid = this_uuid, 
+                                       user = user, 
+                                       password = password,
+                                       use_data_id = use_data_id)
+      # Parse the submission into R format
+      parsed <- odk_parse_submission(xml = submission)
+    })
+    if(inherits(res, "try-error")){
+      next
+    } else {
+      counter <- counter + 1
+      # Pop reformatted data into list
+      data_list[[counter]] <- parsed
+    }
+  }
+  
+  message(counter, ' of ', length(submissions), ' submissions retrieved.')
   
   # Combine all of the data into respective dataframes
   repeats <- bind_rows(lapply(data_list, function(x){x$repeats}))
   non_repeats <- bind_rows(lapply(data_list, function(x){x$non_repeats}))
+  non_repeats$server <- url
   # Combine into one list
   combined <- list()
   combined$repeats <- repeats
