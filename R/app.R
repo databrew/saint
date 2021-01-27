@@ -199,7 +199,7 @@ app_server <- function(input, output, session) {
   
   # Observe the action button (or app start) to load data
   observeEvent(input$action, {
-    get_data_aws(s3_csv_path = '../credentials/s3.csv')
+    get_data_aws(s3_csv_path = 'credentials/s3.csv')
 
     message('Got new df')
     data_list$data <- df
@@ -221,14 +221,14 @@ app_server <- function(input, output, session) {
     old_df <- df <- data_list$data
     message('......', nrow(df), ' rows')
     message('...Fetching ODK data (if any)')
-    df <- update_data_aws(s3_csv_path = '../credentials/s3.csv',
+    df <- update_data_aws(s3_csv_path = 'credentials/s3.csv',
                     df = df,
-                    creds = '../credentials/credentials.yaml')
+                    creds = 'credentials/credentials.yaml')
     message('......', nrow(df), ' rows')
     data_list$data <- df
     if(nrow(old_df) < nrow(df)){
       message('...NEW ROWS. Updating AWS')
-      write_data_aws(s3_csv_path = '../credentials/s3.csv',
+      write_data_aws(s3_csv_path = 'credentials/s3.csv',
                      df = df)
     } else {
       message('...NO NEW ROWS ROWS. LEAVING AWS ALONE')
