@@ -3,7 +3,7 @@
 #' Write data to AWS
 #' @param s3_csv_path Path to an S3 creds csv
 #' @param df A data frame
-#' @param creds A credentials yaml path
+#' @param creds_path A credentials yaml path
 #' @import aws.s3
 #' @import readr
 #' @import yaml
@@ -11,11 +11,11 @@
 #' @export
 
 update_data_aws <- function(s3_csv_path,
-                         df, creds) {
+                         df, creds_path) {
   
   # Read in credentials
   s3_creds <- read_csv(s3_csv_path)
-  creds <- yaml.load_file(creds)
+  creds <- yaml.load_file(creds_path)
   Sys.setenv(
     "AWS_ACCESS_KEY_ID" = s3_creds$`Access key ID`,
     "AWS_SECRET_ACCESS_KEY" = s3_creds$`Secret access key`,
@@ -35,8 +35,8 @@ update_data_aws <- function(s3_csv_path,
                  unknown_id2 = FALSE,
                  uuids = NULL,
                  exclude_uuids = already_done,
-                 user = creds$databrew_odk_user,
-                 password = creds$databrew_odk_pass,
+                 user = creds$user,
+                 password = creds$password,
                  widen = TRUE,
                  pre_auth = FALSE,
                  use_data_id = FALSE, 
@@ -50,8 +50,8 @@ update_data_aws <- function(s3_csv_path,
                  unknown_id2 = TRUE,
                  uuids = NULL,
                  exclude_uuids = already_done,
-                 user = creds$databrew_odk_user,
-                 password = creds$databrew_odk_pass,
+                 user = creds$user,
+                 password = creds$password,
                  widen = TRUE,
                  pre_auth = FALSE,
                  use_data_id = FALSE, 

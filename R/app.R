@@ -223,7 +223,7 @@ app_server <- function(input, output, session) {
     message('...Fetching ODK data (if any)')
     df <- update_data_aws(s3_csv_path = 'credentials/s3.csv',
                     df = df,
-                    creds = 'credentials/credentials.yaml')
+                    creds_path = 'credentials/credentials.yaml')
     message('......', nrow(df), ' rows')
     data_list$data <- df
     if(nrow(old_df) < nrow(df)){
