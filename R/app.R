@@ -29,7 +29,7 @@ app_ui <- function(request) {
             tabName = 'about'),
           fluidRow(
             column(12,
-                   actionButton('action', 'Refresh data'))),
+                   actionButton('update', 'UPDATE DATA'))),
             
           fluidRow(column(12,
                    uiOutput('ts_ui'))
@@ -97,7 +97,9 @@ app_ui <- function(request) {
                       href="mailto:info@databrew.cc",
                       align = 'center')),
                 style = 'text-align:center;'
-              )
+              ),
+              fluidRow(column(12,
+                              actionButton('action', 'Quick data reload')))
             )
           )
         )
@@ -197,38 +199,44 @@ app_server <- function(input, output, session) {
   
   # Observe the action button (or app start) to load data
   observeEvent(input$action, {
-    
-    # Get whether Peru or not
-    peru <- yaml::read_yaml('credentials/credentials.yaml')$peru
-    if(is.null(peru)){
-      peru <- FALSE
-    }
-    message('PERU IS...')
-    print(peru)
-    if(peru){
-      df <- get_data(data_file = paste0(getwd(), '/data_peru.csv'),
-                     user = yaml::read_yaml('credentials/credentials.yaml')$user,
-                     password = yaml::read_yaml('credentials/credentials.yaml')$password,
-                     form_id = 'saintperu2')
-    } else {
-      # Get data 
-      df <- get_data(data_file = paste0(getwd(), '/data.csv'),
-                     user = yaml::read_yaml('credentials/credentials.yaml')$user,
-                     password = yaml::read_yaml('credentials/credentials.yaml')$password)
-    }
-    
-    
-    
+    get_data_aws(s3_csv_path = '../credentials/s3.csv')
+
     message('Got new df')
     data_list$data <- df
     message('Stuck new df in reactive list')
-    data_list$ts <- as.character(Sys.time())
+    data_list$ts <- NA # as.character(Sys.time())
     message('Got time stamp')
-    message('data_list$data looks like:')
-    print(head(data_list$data))
+    # message('data_list$data looks like:')
+    # print(head(data_list$data))
     # x <- data_list$data
     # save(x, file = '/tmp/tmp.RData')
   }, ignoreNULL = FALSE)
+  
+  # Refetch from ODK too
+  # Observe the action button (or app start) to load data
+  observeEvent(input$update, {
+    
+    message('Getting most recent data from ODK...')
+    message('...Loading up current data')
+    old_df <- df <- data_list$data
+    message('......', nrow(df), ' rows')
+    message('...Fetching ODK data (if any)')
+    df <- update_data_aws(s3_csv_path = '../credentials/s3.csv',
+                    df = df,
+                    creds = '../credentials/credentials.yaml')
+    message('......', nrow(df), ' rows')
+    data_list$data <- df
+    if(nrow(old_df) < nrow(df)){
+      message('...NEW ROWS. Updating AWS')
+      write_data_aws(s3_csv_path = '../credentials/s3.csv',
+                     df = df)
+    } else {
+      message('...NO NEW ROWS ROWS. LEAVING AWS ALONE')
+    }
+    data_list$ts <- as.character(Sys.time())
+
+  })
+  
   
   output$dt_raw <- DT::renderDataTable({
     li <- logged_in()
@@ -245,16 +253,29 @@ app_server <- function(input, output, session) {
   output$ts_ui <- renderUI({
     li <- logged_in()
     if(li){
-      out <- as.POSIXct(data_list$ts) + hours(2) # this will be wrong locally, correct on server
-      out <- as.character(out)
-      fluidPage(
-        helpText('Updated at:'),
-        helpText(out)
-      )
+      ts <- data_list$ts
+      if(!is.na(ts)){
+        out <- as.POSIXct(Sys.time())# + hours(2) # this will be wrong locally, correct on server
+        out <- as.character(with_tz(out, 'UTC'))
+        out <- paste0(out, ' UTC')
+        done <- fluidPage(
+          helpText('Updated at:'),
+          p(out)
+        )
+      } else {
+        done <- fluidPage(
+          h6('CLICK ABOVE'),
+          h6('TO UPDATE')
+        )
+      }
+
+      
     } else {
-      fluidPage('Please enter password')
+      done <- fluidPage(h6('Please'),
+                        h6('enter'),
+                        h6('password'))
     }
-    
+    done
   })
   
   output$dt_missing <- render_gt({
@@ -354,7 +375,7 @@ app_server <- function(input, output, session) {
   
   data_symptoms <- reactive({
     pd <- data_list$data
-    save(pd, file = '/tmp/pd.RData')
+    # save(pd, file = '/tmp/pd.RData')
     pd <- pd %>%
       mutate(date = as.Date(fecha)) %>%
       arrange(pin,

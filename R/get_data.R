@@ -10,6 +10,7 @@
 #' @import lubridate
 #' @return Data is read
 #' @export
+
 get_data <- function(data_file = 'data.csv',
                      user = '',
                      password = '',

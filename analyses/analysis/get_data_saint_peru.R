@@ -31,3 +31,4 @@ joined <- bind_rows(
                                                pin2 = as.character(pin2),
                                                temp = as.character(temp))
 )
+write_csv(joined, '~/Desktop/saintperu.csv')

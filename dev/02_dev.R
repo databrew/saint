@@ -24,6 +24,7 @@ usethis::use_package( "ggthemes" )
 usethis::use_package( "RColorBrewer" )
 usethis::use_package( "lubridate" )
 usethis::use_package( "gt" )
+usethis::use_package( "aws.s3" )
 
 
 ## Add modules ----
