@@ -16,7 +16,7 @@ google-auth-oauthlib==0.4.0
 httplib2==0.13.1
 idna==2.8
 imagesize==1.1.0
-Jinja2==2.10.1
+Jinja2==2.11.3
 linecache2==1.0.0
 MarkupSafe==1.1.1
 nose==1.0.0
